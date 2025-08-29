@@ -1,4 +1,4 @@
-# Multi-Client CLI Chat - MVP Requirements
+# Confluxus Requirements
 # Core dependencies for enhanced features
 
 # Required for encryption

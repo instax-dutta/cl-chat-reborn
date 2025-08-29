@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Enhanced Multi-Client CLI Chat Client - MVP
+Confluxus Enhanced Chat Client
 Features: Terminal UI, Encryption, and Modern Interface
 """
 
@@ -269,7 +269,7 @@ def main():
     """Main function to run the enhanced chat client."""
     import argparse
     
-    parser = argparse.ArgumentParser(description="Enhanced Multi-Client CLI Chat Client")
+    parser = argparse.ArgumentParser(description="Confluxus Enhanced Chat Client")
     parser.add_argument("--host", default="localhost", help="Server host (default: localhost)")
     parser.add_argument("--port", type=int, default=5000, help="Server port (default: 5000)")
     parser.add_argument("--username", help="Your username")

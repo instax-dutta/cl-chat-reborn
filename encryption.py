@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Encryption module for Multi-Client CLI Chat - MVP
+Encryption module for Confluxus
 Provides end-to-end encryption for secure messaging.
 """
 

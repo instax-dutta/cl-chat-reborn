@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Demo script for Multi-Client CLI Chat - MVP
+Demo script for Confluxus
 Showcases the enhanced features including encryption and terminal UI.
 """
 
@@ -12,7 +12,7 @@ import os
 def print_banner():
     """Print the demo banner."""
     print("=" * 60)
-    print("🚀 Multi-Client CLI Chat - Enhanced Features Demo")
+    print("🚀 Confluxus - Enhanced Features Demo")
     print("=" * 60)
     print("✨ Features:")
     print("   • End-to-end encryption using AES")
@@ -20,6 +20,7 @@ def print_banner():
     print("   • Real-time messaging")
     print("   • Multiple concurrent clients")
     print("   • Enhanced commands (/help, /clear, etc.)")
+    print("   • Complete trace clearance")
     print("=" * 60)
 
 def check_dependencies():
@@ -58,10 +59,11 @@ def show_usage_instructions():
     print("   python3 client.py --username Charlie")
     print()
     print("3. Try these commands in the chat:")
-    print("   /help    - Show available commands")
-    print("   /clear   - Clear chat history")
-    print("   /users   - Show connected users")
-    print("   /quit    - Disconnect")
+    print("   /help      - Show available commands")
+    print("   /clear     - Clear chat history")
+    print("   /clear-all - Clear all traces completely")
+    print("   /users     - Show connected users")
+    print("   /quit      - Disconnect")
     print()
 
 def show_encryption_info():
@@ -83,6 +85,7 @@ def show_ui_features():
     print("   • Real-time message display")
     print("   • Command history")
     print("   • Responsive terminal interface")
+    print("   • Trace clearance commands")
     print()
 
 def run_quick_test():

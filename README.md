@@ -1,8 +1,8 @@
-# Multi-Client CLI Chat - MVP 🚀
+# Confluxus 🚀
 
-A **minimal viable product** for a multi-client command-line chat service built with Python sockets. Multiple users can connect and exchange real-time text messages through a simple CLI interface.
+A **secure multi-client command-line chat service** built with Python sockets. Multiple users can connect and exchange real-time text messages through a modern CLI interface with end-to-end encryption and complete trace clearance.
 
-## 🎯 Features (MVP Scope)
+## 🎯 Features
 
 ✅ **Real-time messaging** - Instant message delivery between clients  
 ✅ **Multiple concurrent clients** - Support for unlimited simultaneous connections  
@@ -16,7 +16,7 @@ A **minimal viable product** for a multi-client command-line chat service built 
 ✅ **Enhanced commands** - Built-in help, clear, and user management commands  
 ✅ **Complete trace clearance** - Automatic cleanup when chatroom is empty  
 
-## 🚫 Not Included (Future Iterations)
+## 🚫 Future Enhancements
 
 - Authentication/login system
 - Persistent message history
@@ -89,7 +89,7 @@ python3 client.py --username Charlie
 Once connected, you'll see the enhanced terminal UI:
 ```
 ==================================================
-🚀 Multi-Client CLI Chat - MVP
+🚀 Confluxus
 ==================================================
 👤 Username: Alice
 🌐 Server: localhost:5000
@@ -212,13 +212,13 @@ For **internet access**, you'll need to:
 2. Use your public IP address
 3. Consider security implications
 
-## 🧪 Testing the MVP
+## 🧪 Testing Confluxus
 
 ### Test Scenario 1: Basic Messaging
 
-1. Start server: `python server.py`
-2. Connect Alice: `python client.py --username Alice`
-3. Connect Bob: `python client.py --username Bob`
+1. Start server: `python3 server.py`
+2. Connect Alice: `python3 client_enhanced.py --username Alice`
+3. Connect Bob: `python3 client_enhanced.py --username Bob`
 4. Alice types: `Hello everyone!`
 5. Bob should see: `[Alice]: Hello everyone!`
 
@@ -286,13 +286,13 @@ print(f"DEBUG: Sending: {message}")
 ### Phase 4 Features
 - [ ] Web interface
 - [ ] Mobile app
-- [ ] End-to-end encryption
 - [ ] Voice/video calls
+- [ ] Advanced encryption features
 
 ## 📝 Code Structure
 
 ```
-cl-chat-reborn/
+confluxus/
 ├── server.py              # Main server implementation
 ├── client.py              # Basic client implementation
 ├── client_enhanced.py     # Enhanced client with UI and encryption
@@ -336,4 +336,4 @@ MIT License - feel free to use for learning, personal projects, or commercial us
 
 **Happy Chatting! 🎉**
 
-*Built with ❤️ using Python sockets*
+*Confluxus - Built with ❤️ using Python sockets*

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Multi-Client CLI Chat Client - MVP
+Confluxus Chat Client
 Connects to the chat server and provides CLI interface for messaging.
 """
 
@@ -225,7 +225,7 @@ def main():
     """Main function to run the chat client."""
     import argparse
     
-    parser = argparse.ArgumentParser(description="Multi-Client CLI Chat Client")
+    parser = argparse.ArgumentParser(description="Confluxus Chat Client")
     parser.add_argument("--host", default="localhost", help="Server host (default: localhost)")
     parser.add_argument("--port", type=int, default=5000, help="Server port (default: 5000)")
     parser.add_argument("--username", help="Your username")

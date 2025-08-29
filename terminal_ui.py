@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Terminal UI module for Multi-Client CLI Chat - MVP
+Terminal UI module for Confluxus
 Provides a modern, terminal-like chat interface with colors and formatting.
 """
 
@@ -111,7 +111,7 @@ class TerminalUI:
     def _show_welcome(self):
         """Display welcome message and connection info."""
         print(f"{Fore.CYAN}{'=' * self.terminal_width}")
-        print(f"{Fore.GREEN}🚀 Multi-Client CLI Chat - MVP")
+        print(f"{Fore.GREEN}🚀 Confluxus")
         print(f"{Fore.CYAN}{'=' * self.terminal_width}")
         print(f"{Fore.WHITE}👤 Username: {Fore.YELLOW}{self.username}")
         print(f"{Fore.WHITE}🌐 Server: {Fore.YELLOW}{self.host}:{self.port}")
@@ -303,7 +303,7 @@ class SimpleTerminalUI:
         self.running = True
         self.connected = True
         
-        print(f"🚀 Multi-Client CLI Chat - MVP")
+        print(f"🚀 Confluxus")
         print(f"👤 Username: {self.username}")
         print(f"🌐 Server: {self.host}:{self.port}")
         print(f"🔒 Status: Connected")

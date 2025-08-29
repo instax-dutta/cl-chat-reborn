@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Trace Clearance Utility for Multi-Client CLI Chat - MVP
+Trace Clearance Utility for Confluxus
 Provides comprehensive trace clearance functionality.
 """
 

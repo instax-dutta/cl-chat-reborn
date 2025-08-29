@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test script for Multi-Client CLI Chat - MVP
+Test script for Confluxus
 Helps verify that the chat system is working correctly.
 """
 
@@ -78,7 +78,7 @@ def test_port_availability(port=5000):
 
 def run_basic_tests():
     """Run all basic tests."""
-    print("🧪 Running Multi-Client CLI Chat Tests")
+    print("🧪 Running Confluxus Tests")
     print("=" * 50)
     
     # Test 1: Port availability
@@ -123,7 +123,7 @@ def main():
     """Main test function."""
     import argparse
     
-    parser = argparse.ArgumentParser(description="Test Multi-Client CLI Chat System")
+    parser = argparse.ArgumentParser(description="Test Confluxus Chat System")
     parser.add_argument("--host", default="localhost", help="Server host to test")
     parser.add_argument("--port", type=int, default=5000, help="Server port to test")
     
