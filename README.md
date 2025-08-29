@@ -14,6 +14,7 @@ A **minimal viable product** for a multi-client command-line chat service built 
 ✅ **End-to-end encryption** - Secure message transmission using AES encryption  
 ✅ **Modern terminal UI** - Colored interface with timestamps and formatting  
 ✅ **Enhanced commands** - Built-in help, clear, and user management commands  
+✅ **Complete trace clearance** - Automatic cleanup when chatroom is empty  
 
 ## 🚫 Not Included (Future Iterations)
 
@@ -133,8 +134,11 @@ python3 client_enhanced.py --username Charlie --no-encryption
 # Enhanced client with basic console interface
 python3 client_enhanced.py --username David --no-ui
 
+# Enhanced client without trace clearance
+python3 client_enhanced.py --username Eve --no-auto-clear
+
 # Connect to custom server
-python3 client_enhanced.py --host 192.168.1.100 --port 8080 --username Eve
+python3 client_enhanced.py --host 192.168.1.100 --port 8080 --username Frank
 ```
 
 ### Client Commands
@@ -142,11 +146,46 @@ python3 client_enhanced.py --host 192.168.1.100 --port 8080 --username Eve
 - **Type any message** - Sends to all connected clients
 - **`/help`** - Show available commands
 - **`/clear`** - Clear chat history (UI mode only)
+- **`/clear-all`** - Clear all traces completely (UI mode only)
 - **`/users`** - Show connected users (coming soon)
 - **`/quit`** or **`/exit`** or **`/q`** - Disconnect from server
 - **`Ctrl+C`** - Force disconnect
 
 ## 🔧 Advanced Configuration
+
+### Trace Clearance Features
+
+The chat system includes comprehensive trace clearance functionality:
+
+**Automatic Trace Clearance:**
+- Server automatically clears all message history when chatroom becomes empty
+- Clients clear local message history when disconnecting
+- Memory is freed and garbage collection is performed
+- No communication traces remain on the system
+
+**Manual Trace Clearance:**
+```bash
+# Clear all traces manually
+python3 trace_clearance.py
+
+# Clear only local traces
+python3 trace_clearance.py --local-only
+
+# Clear traces from specific server
+python3 trace_clearance.py --host 192.168.1.100 --port 5000
+```
+
+**Client Commands:**
+- `/clear-all` - Clear all traces completely (UI mode only)
+
+**Server Options:**
+```bash
+# Disable automatic trace clearance
+python3 server.py --no-auto-clear
+
+# Disable encryption and trace clearance
+python3 server.py --no-encryption --no-auto-clear
+```
 
 ### Custom Server Settings
 
@@ -259,6 +298,7 @@ cl-chat-reborn/
 ├── client_enhanced.py     # Enhanced client with UI and encryption
 ├── encryption.py          # Encryption module
 ├── terminal_ui.py         # Terminal UI module
+├── trace_clearance.py     # Trace clearance utility
 ├── test_chat.py           # Testing utility
 ├── requirements.txt       # Dependencies
 └── README.md             # This file

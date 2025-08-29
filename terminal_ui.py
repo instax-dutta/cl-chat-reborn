@@ -197,6 +197,8 @@ class TerminalUI:
             self._show_help()
         elif cmd == '/clear':
             self._clear_chat()
+        elif cmd == '/clear-all':
+            self.clear_all_traces()
         elif cmd == '/users':
             self._show_users()
         elif cmd in ['/quit', '/exit', '/q']:
@@ -212,10 +214,11 @@ class TerminalUI:
         help_msg = ChatMessage(
             "SYSTEM",
             "Available commands:\n"
-            "  /help   - Show this help\n"
-            "  /clear  - Clear chat history\n"
-            "  /users  - Show connected users\n"
-            "  /quit   - Disconnect and exit",
+            "  /help      - Show this help\n"
+            "  /clear     - Clear chat history\n"
+            "  /clear-all - Clear all traces completely\n"
+            "  /users     - Show connected users\n"
+            "  /quit      - Disconnect and exit",
             "system"
         )
         self.add_message(help_msg)
@@ -225,6 +228,19 @@ class TerminalUI:
         self.messages.clear()
         self._clear_screen()
         self._show_welcome()
+        print("🧹 Chat history cleared")
+    
+    def clear_all_traces(self):
+        """Clear all traces and history completely."""
+        self.messages.clear()
+        self._clear_screen()
+        self._show_welcome()
+        
+        # Force garbage collection
+        import gc
+        gc.collect()
+        
+        print("🧹 All traces cleared from terminal UI")
     
     def _show_users(self):
         """Show connected users (placeholder)."""

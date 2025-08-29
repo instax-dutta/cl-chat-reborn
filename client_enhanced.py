@@ -9,13 +9,13 @@ import threading
 import json
 import sys
 import time
-from typing import Optional
+from typing import Optional, List
 from encryption import EncryptionManager
 from terminal_ui import create_ui
 
 class EnhancedChatClient:
     def __init__(self, host: str = 'localhost', port: int = 5000, username: str = None, 
-                 enable_encryption: bool = True, use_ui: bool = True):
+                 enable_encryption: bool = True, use_ui: bool = True, auto_clear_history: bool = True):
         self.host = host
         self.port = port
         self.username = username
@@ -25,6 +25,8 @@ class EnhancedChatClient:
         self.encryption_manager = EncryptionManager(enable_encryption)
         self.ui = None
         self.use_ui = use_ui
+        self.auto_clear_history = auto_clear_history
+        self.message_history: List[dict] = []  # Local message history for trace clearance
         
     def connect(self) -> bool:
         """Connect to the chat server."""
@@ -147,6 +149,8 @@ class EnhancedChatClient:
                         elif message_type == "chat":
                             sender = message_data.get("sender", "Unknown")
                             self.ui.add_chat_message(sender, decrypted_message)
+                            # Store message in local history for trace clearance
+                            self._add_to_history(sender, decrypted_message)
                     else:
                         # Use basic console output
                         if message_type == "system":
@@ -212,6 +216,10 @@ class EnhancedChatClient:
         self.running = False
         self.connected = False
         
+        # Clear all local traces before stopping
+        if self.auto_clear_history:
+            self._clear_local_traces()
+        
         if self.ui:
             self.ui.stop()
         
@@ -222,6 +230,32 @@ class EnhancedChatClient:
                 pass
         
         print("🛑 Enhanced client stopped")
+    
+    def _add_to_history(self, sender: str, message: str):
+        """Add message to local history for trace clearance."""
+        if self.auto_clear_history:
+            self.message_history.append({
+                'sender': sender,
+                'message': message,
+                'timestamp': time.time()
+            })
+    
+    def _clear_local_traces(self):
+        """Clear all local message traces and history."""
+        print("🧹 Clearing all local message traces...")
+        
+        # Clear local message history
+        self.message_history.clear()
+        
+        # Clear UI history if available
+        if self.ui and hasattr(self.ui, 'messages'):
+            self.ui.messages.clear()
+        
+        # Force garbage collection to free memory
+        import gc
+        gc.collect()
+        
+        print("✅ Local trace clearance completed")
 
 def get_username() -> str:
     """Get username from user input."""
@@ -241,6 +275,7 @@ def main():
     parser.add_argument("--username", help="Your username")
     parser.add_argument("--no-encryption", action="store_true", help="Disable encryption")
     parser.add_argument("--no-ui", action="store_true", help="Use basic console interface")
+    parser.add_argument("--no-auto-clear", action="store_true", help="Disable automatic trace clearance")
     
     args = parser.parse_args()
     
@@ -254,7 +289,8 @@ def main():
         args.port, 
         username,
         enable_encryption=not args.no_encryption,
-        use_ui=not args.no_ui
+        use_ui=not args.no_ui,
+        auto_clear_history=not args.no_auto_clear
     )
     
     try:

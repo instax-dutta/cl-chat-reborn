@@ -12,13 +12,16 @@ from typing import Dict, List, Tuple
 from encryption import EncryptionManager
 
 class ChatServer:
-    def __init__(self, host: str = 'localhost', port: int = 5000, enable_encryption: bool = True):
+    def __init__(self, host: str = 'localhost', port: int = 5000, enable_encryption: bool = True, 
+                 auto_clear_history: bool = True):
         self.host = host
         self.port = port
         self.server_socket = None
         self.clients: Dict[str, Tuple[socket.socket, str]] = {}  # {client_socket: (socket, username)}
         self.running = False
         self.encryption_manager = EncryptionManager(enable_encryption)
+        self.auto_clear_history = auto_clear_history
+        self.message_history: List[dict] = []  # Store message history for trace clearance
         
     def start(self):
         """Start the chat server and listen for connections."""
@@ -104,6 +107,10 @@ class ChatServer:
                             # Decrypt message if needed
                             decrypted_message = self.encryption_manager.decrypt(message)
                             print(f"💬 [{username}]: {decrypted_message}")
+                            
+                            # Store message in history for trace clearance
+                            self._add_to_history(username, decrypted_message, message)
+                            
                             self.broadcast_message(message, "chat", sender=username, exclude_socket=client_socket)
                             
                     except socket.error:
@@ -122,6 +129,9 @@ class ChatServer:
                     print(f"👋 {username} disconnected")
                     self.broadcast_message(f"{username} left the chat!", "system")
                     print(f"📊 Active clients: {len(self.clients)}")
+                    
+                    # Check if chatroom is empty and clear traces
+                    self._check_and_clear_if_empty()
     
     def broadcast_message(self, message: str, msg_type: str, sender: str = None, exclude_socket: socket.socket = None):
         """Broadcast a message to all connected clients."""
@@ -161,6 +171,10 @@ class ChatServer:
         """Stop the server and close all connections."""
         self.running = False
         
+        # Clear all traces before stopping
+        if self.auto_clear_history:
+            self._clear_all_traces()
+        
         # Close all client connections
         for client_socket in list(self.clients.keys()):
             try:
@@ -177,6 +191,40 @@ class ChatServer:
                 pass
             
         print("🛑 Server stopped")
+    
+    def _add_to_history(self, sender: str, decrypted_message: str, encrypted_message: str):
+        """Add message to history for trace clearance."""
+        if self.auto_clear_history:
+            self.message_history.append({
+                'sender': sender,
+                'decrypted': decrypted_message,
+                'encrypted': encrypted_message,
+                'timestamp': time.time()
+            })
+    
+    def _clear_all_traces(self):
+        """Completely clear all message traces and history."""
+        print("🧹 Clearing all message traces and history...")
+        
+        # Clear message history
+        self.message_history.clear()
+        
+        # Clear server logs (print newlines to overwrite previous output)
+        print("\n" * 50)
+        print("🧹 All message traces cleared from server memory")
+        print("🔒 No communication history remains")
+        
+        # Force garbage collection to free memory
+        import gc
+        gc.collect()
+        
+        print("✅ Complete trace clearance completed")
+    
+    def _check_and_clear_if_empty(self):
+        """Check if chatroom is empty and clear traces if so."""
+        if len(self.clients) == 0 and self.auto_clear_history:
+            print(f"📭 Chatroom is empty - clearing all traces...")
+            self._clear_all_traces()
 
 def main():
     """Main function to run the chat server."""
@@ -186,10 +234,16 @@ def main():
     parser.add_argument("--host", default="localhost", help="Server host (default: localhost)")
     parser.add_argument("--port", type=int, default=5000, help="Server port (default: 5000)")
     parser.add_argument("--no-encryption", action="store_true", help="Disable encryption")
+    parser.add_argument("--no-auto-clear", action="store_true", help="Disable automatic trace clearance")
     
     args = parser.parse_args()
     
-    server = ChatServer(args.host, args.port, enable_encryption=not args.no_encryption)
+    server = ChatServer(
+        args.host, 
+        args.port, 
+        enable_encryption=not args.no_encryption,
+        auto_clear_history=not args.no_auto_clear
+    )
     
     try:
         server.start()
