@@ -1,0 +1,17 @@
+# Multi-Client CLI Chat - MVP Requirements
+# Core dependencies for enhanced features
+
+# Required for encryption
+cryptography>=3.4.8
+
+# Optional for enhanced terminal UI
+colorama>=0.4.6
+
+# Python 3.6+ is recommended for better type hints support
+# The following modules are used (all built-in):
+# - socket: For network communication
+# - threading: For concurrent client handling
+# - json: For message serialization
+# - argparse: For command line argument parsing
+# - sys, time: For system operations and timing
+# - os, base64: For encryption operations
