@@ -1,120 +1,93 @@
-#!/usr/bin/env python3
 """
-Encryption module for Confluxus
-Provides end-to-end encryption for secure messaging.
+Encryption module for CL Chat
+X25519 ECDH key exchange + ChaCha20-Poly1305 AEAD + HKDF-SHA256.
+
+Each peer-to-peer connection gets its own ephemeral X25519 keypair.
+A shared symmetric key is derived via HKDF-SHA256 from the ECDH shared secret.
+Messages are encrypted with ChaCha20-Poly1305 using random 12-byte nonces,
+providing authenticated encryption and forward secrecy.
 """
 
 import os
 import base64
-import hashlib
-from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives.asymmetric import x25519
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from typing import Optional, Tuple
+from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 
-class ChatEncryption:
-    def __init__(self, password: str = None):
-        """
-        Initialize encryption with optional password.
-        If no password provided, generates a random one.
-        """
-        if password:
-            self.password = password.encode()
-        else:
-            # Generate a random password if none provided
-            self.password = os.urandom(32)
-        
-        self.salt = os.urandom(16)
-        self.key = self._derive_key(self.password, self.salt)
-        self.cipher = Fernet(self.key)
-        
-    def _derive_key(self, password: bytes, salt: bytes) -> bytes:
-        """Derive encryption key from password using PBKDF2."""
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            iterations=100000,
-        )
-        key = base64.urlsafe_b64encode(kdf.derive(password))
-        return key
-    
-    def encrypt_message(self, message: str) -> str:
-        """Encrypt a message and return base64 encoded string."""
+
+class CryptoContext:
+    """Per-connection cryptographic context.
+
+    Uses X25519 ECDH for key agreement and ChaCha20-Poly1305
+    for authenticated encryption with random nonces.
+    """
+
+    def __init__(self, enabled: bool = True):
+        self.enabled = enabled
+        self._private_key = None
+        self._shared_key = None
+
+        if enabled:
+            self._private_key = x25519.X25519PrivateKey.generate()
+
+    def get_public_key(self) -> str:
+        """Return base64-encoded X25519 public key for handshake."""
+        if not self.enabled or not self._private_key:
+            return ""
+        pub = self._private_key.public_key()
+        raw = pub.public_bytes_raw()
+        return base64.b64encode(raw).decode()
+
+    def derive_shared(self, peer_pubkey_b64: str):
+        """Derive shared key from peer's base64-encoded public key via X25519 + HKDF."""
+        if not self.enabled or not self._private_key:
+            return
         try:
-            encrypted_data = self.cipher.encrypt(message.encode('utf-8'))
-            return base64.urlsafe_b64encode(encrypted_data).decode('utf-8')
-        except Exception as e:
-            print(f"❌ Encryption error: {e}")
-            return message  # Fallback to plain text
-    
-    def decrypt_message(self, encrypted_message: str) -> str:
-        """Decrypt a base64 encoded encrypted message."""
-        try:
-            # Check if message is encrypted (base64 format)
-            if not self._is_base64(encrypted_message):
-                return encrypted_message  # Return as-is if not encrypted
-                
-            encrypted_data = base64.urlsafe_b64decode(encrypted_message.encode('utf-8'))
-            decrypted_data = self.cipher.decrypt(encrypted_data)
-            return decrypted_data.decode('utf-8')
-        except Exception as e:
-            print(f"❌ Decryption error: {e}")
-            return encrypted_message  # Return encrypted message if decryption fails
-    
-    def _is_base64(self, s: str) -> bool:
-        """Check if string is valid base64."""
-        try:
-            base64.urlsafe_b64decode(s.encode('utf-8'))
-            return True
+            raw = base64.b64decode(peer_pubkey_b64)
+            peer_pub = x25519.X25519PublicKey.from_public_bytes(raw)
+            shared = self._private_key.exchange(peer_pub)
+
+            hkdf = HKDF(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=None,
+                info=b'clchat-p2p-v2',
+            )
+            self._shared_key = hkdf.derive(shared)
         except Exception:
-            return False
-    
-    def get_public_info(self) -> dict:
-        """Get public encryption info (salt) for key exchange."""
-        return {
-            "salt": base64.urlsafe_b64encode(self.salt).decode('utf-8'),
-            "encrypted": True
-        }
-    
-    def set_shared_key(self, salt: str):
-        """Set shared key using received salt."""
-        try:
-            self.salt = base64.urlsafe_b64decode(salt.encode('utf-8'))
-            self.key = self._derive_key(self.password, self.salt)
-            self.cipher = Fernet(self.key)
-        except Exception as e:
-            print(f"❌ Error setting shared key: {e}")
+            self._shared_key = None
 
-class EncryptionManager:
-    """Manages encryption for the chat application."""
-    
-    def __init__(self, enable_encryption: bool = True, password: str = None):
-        self.enable_encryption = enable_encryption
-        self.encryption = None
-        
-        if enable_encryption:
-            self.encryption = ChatEncryption(password)
-    
-    def encrypt(self, message: str) -> str:
-        """Encrypt message if encryption is enabled."""
-        if not self.enable_encryption or not self.encryption:
-            return message
-        return self.encryption.encrypt_message(message)
-    
-    def decrypt(self, message: str) -> str:
-        """Decrypt message if encryption is enabled."""
-        if not self.enable_encryption or not self.encryption:
-            return message
-        return self.encryption.decrypt_message(message)
-    
-    def get_encryption_info(self) -> dict:
-        """Get encryption information for key exchange."""
-        if not self.enable_encryption or not self.encryption:
-            return {"encrypted": False}
-        return self.encryption.get_public_info()
-    
-    def set_shared_key(self, salt: str):
-        """Set shared encryption key."""
-        if self.enable_encryption and self.encryption:
-            self.encryption.set_shared_key(salt)
+    @property
+    def ready(self) -> bool:
+        return self.enabled and self._shared_key is not None
+
+    def encrypt(self, plaintext: str) -> str:
+        """Encrypt plaintext with ChaCha20-Poly1305.
+
+        Returns base64(nonce + ciphertext) or raw input if crypto disabled.
+        """
+        if not self.ready:
+            return plaintext
+        nonce = os.urandom(12)
+        chacha = ChaCha20Poly1305(self._shared_key)
+        ct = chacha.encrypt(nonce, plaintext.encode('utf-8'), None)
+        return base64.b64encode(nonce + ct).decode()
+
+    def decrypt(self, payload: str):
+        """Decrypt base64(nonce + ciphertext) via ChaCha20-Poly1305.
+
+        Returns plaintext string, None on failure, or raw input if crypto disabled.
+        """
+        if not self.enabled:
+            return payload
+        if not self._shared_key:
+            return payload
+        try:
+            raw = base64.b64decode(payload)
+            nonce, ct = raw[:12], raw[12:]
+            chacha = ChaCha20Poly1305(self._shared_key)
+            pt = chacha.decrypt(nonce, ct, None)
+            return pt.decode('utf-8')
+        except Exception:
+            return None

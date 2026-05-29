@@ -1,143 +1,98 @@
 #!/usr/bin/env python3
 """
-Demo script for Confluxus
-Showcases the enhanced features including encryption and terminal UI.
+Demo script for CL Chat — Peer-to-Peer CLI Chat
 """
 
-import subprocess
+import socket
 import time
 import sys
 import os
 
+
 def print_banner():
-    """Print the demo banner."""
     print("=" * 60)
-    print("🚀 Confluxus - Enhanced Features Demo")
+    print("CL Chat - Peer-to-Peer Command Line Chat")
     print("=" * 60)
-    print("✨ Features:")
-    print("   • End-to-end encryption using AES")
-    print("   • Modern terminal UI with colors")
-    print("   • Real-time messaging")
-    print("   • Multiple concurrent clients")
-    print("   • Enhanced commands (/help, /clear, etc.)")
-    print("   • Complete trace clearance")
+    print("Features:")
+    print("  • Peer-to-peer architecture (no central server)")
+    print("  • End-to-end encryption (AES-256)")
+    print("  • Modern terminal UI with colors")
+    print("  • Broadcast & direct messaging")
+    print("  • Multiple concurrent peer connections")
+    print("  • Commands: /connect, /msg, /peers, /nick")
     print("=" * 60)
+
 
 def check_dependencies():
-    """Check if required dependencies are installed."""
-    print("🔍 Checking dependencies...")
-    
+    print("Checking dependencies...")
+
     try:
         import cryptography
-        print("✅ cryptography - Available")
+        print("  cryptography - Available")
     except ImportError:
-        print("❌ cryptography - Not installed")
+        print("  cryptography - Not installed")
         return False
-    
+
     try:
         import colorama
-        print("✅ colorama - Available")
+        print("  colorama - Available")
     except ImportError:
-        print("⚠️  colorama - Not installed (UI will use basic colors)")
-    
+        print("  colorama - Not installed (UI will use basic output)")
+
     return True
 
-def show_usage_instructions():
-    """Show usage instructions."""
-    print("\n📖 Usage Instructions:")
-    print("1. Start the server:")
-    print("   python3 server.py")
+
+def show_usage():
+    print("\nUsage:")
+    print("  Terminal 1 (Alice):")
+    print("    python3 peer.py --username Alice --port 9000")
     print()
-    print("2. Connect multiple clients:")
-    print("   # Terminal 1 - Enhanced UI")
-    print("   python3 client_enhanced.py --username Alice")
+    print("  Terminal 2 (Bob):")
+    print("    python3 peer.py --username Bob --port 9001")
+    print("    # Then in Bob's terminal: /connect 127.0.0.1 9000")
     print()
-    print("   # Terminal 2 - Enhanced UI")
-    print("   python3 client_enhanced.py --username Bob")
-    print()
-    print("   # Terminal 3 - Basic UI")
-    print("   python3 client.py --username Charlie")
-    print()
-    print("3. Try these commands in the chat:")
-    print("   /help      - Show available commands")
-    print("   /clear     - Clear chat history")
-    print("   /clear-all - Clear all traces completely")
-    print("   /users     - Show connected users")
-    print("   /quit      - Disconnect")
+    print("  Commands:")
+    print("    /connect <host> <port>  - Connect to a peer")
+    print("    /peers                  - List connected peers")
+    print("    /msg <user> <msg>       - Send direct message")
+    print("    /nick <name>            - Change nickname")
+    print("    /clear                  - Clear screen")
+    print("    /help                   - Show help")
+    print("    /quit                   - Exit")
     print()
 
-def show_encryption_info():
-    """Show encryption information."""
-    print("🔒 Encryption Details:")
-    print("   • Algorithm: AES-256 (Fernet)")
-    print("   • Key derivation: PBKDF2 with SHA256")
-    print("   • Salt: Random 16-byte salt")
-    print("   • Iterations: 100,000")
-    print("   • End-to-end: Messages encrypted client-side")
-    print()
 
-def show_ui_features():
-    """Show UI features."""
-    print("🎨 UI Features:")
-    print("   • Colored timestamps and usernames")
-    print("   • System message highlighting")
-    print("   • Error message formatting")
-    print("   • Real-time message display")
-    print("   • Command history")
-    print("   • Responsive terminal interface")
-    print("   • Trace clearance commands")
-    print()
-
-def run_quick_test():
-    """Run a quick test to verify the system works."""
-    print("🧪 Running quick test...")
-    
+def check_port(port=9000):
     try:
-        # Test server connection
-        import socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(2)
-        result = sock.connect_ex(('localhost', 5000))
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(('localhost', port))
         sock.close()
-        
-        if result == 0:
-            print("✅ Server is running on localhost:5000")
-            return True
-        else:
-            print("❌ Server is not running")
-            print("   Start it with: python3 server.py")
-            return False
-            
-    except Exception as e:
-        print(f"❌ Test failed: {e}")
+        return True
+    except socket.error:
         return False
 
+
 def main():
-    """Main demo function."""
     print_banner()
-    
-    # Check dependencies
+
     if not check_dependencies():
-        print("❌ Please install missing dependencies:")
-        print("   pip install cryptography colorama")
+        print("Install missing deps: pip install cryptography colorama")
         return
-    
-    print()
-    
-    # Show features
-    show_encryption_info()
-    show_ui_features()
-    
-    # Run quick test
-    if run_quick_test():
-        print("🎉 System is ready for demo!")
-        show_usage_instructions()
+
+    show_usage()
+
+    port_free = check_port(9000)
+    if port_free:
+        print("Port 9000 is available for listening")
     else:
-        print("⚠️  Please start the server first")
-        print("   python3 server.py")
-    
+        print("Port 9000 is in use — use --port to specify a different one")
+
+    print()
     print("=" * 60)
-    print("Happy Chatting! 🎉")
+    print("Start chatting! Run peer.py in multiple terminals.")
+    print("=" * 60)
+
 
 if __name__ == "__main__":
     main()

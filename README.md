@@ -1,339 +1,136 @@
-# Confluxus 🚀
+# CL Chat
 
-A **secure multi-client command-line chat service** built with Python sockets. Multiple users can connect and exchange real-time text messages through a modern CLI interface with end-to-end encryption and complete trace clearance.
+Peer-to-peer command-line chat with **per-connection ECDH encryption**, mesh message propagation, and full input sanitization. No servers, no accounts, no logs.
 
-## 🎯 Features
+## Features
 
-✅ **Real-time messaging** - Instant message delivery between clients  
-✅ **Multiple concurrent clients** - Support for unlimited simultaneous connections  
-✅ **Username identification** - Each client has a unique username  
-✅ **Broadcast messaging** - Messages sent to all connected clients  
-✅ **System notifications** - Join/leave notifications and server messages  
-✅ **Graceful disconnection** - Clean handling of client disconnections  
-✅ **Cross-platform** - Works on Windows, macOS, and Linux  
-✅ **End-to-end encryption** - Secure message transmission using AES encryption  
-✅ **Modern terminal UI** - Colored interface with timestamps and formatting  
-✅ **Enhanced commands** - Built-in help, clear, and user management commands  
-✅ **Complete trace clearance** - Automatic cleanup when chatroom is empty  
+- **Peer-to-peer** — every peer is both a client and a server; connect directly to form a mesh
+- **Broadcast & direct messages** — talk to everyone or whisper to one
+- **Per-connection ECDH encryption** — X25519 key exchange + ChaCha20-Poly1305 AEAD per link
+- **Perfect forward secrecy** — ephemeral keypairs, no long-term secrets stored
+- **Mesh forwarding** — messages propagate through connected peers (with UUID dedup)
+- **Input sanitization** — rate limiting, username validation, control-char stripping
+- **Colored terminal UI** — timestamps, system messages, direct-message tagging
+- **Nickname system** — change your name mid-session; peers are notified
+- **Trace clearance** — memory cleanup on disconnect
 
-## 🚫 Future Enhancements
-
-- Authentication/login system
-- Persistent message history
-- Private chats or direct messaging
-- File transfer capabilities
-- GUI or fancy terminal formatting
-- Message encryption
-
-## 🛠 Architecture
+## How it works
 
 ```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Client A  │    │   Client B  │    │   Client C  │
-│  (Alice)    │    │   (Bob)     │    │   (Charlie) │
-└──────┬──────┘    └──────┬──────┘    └──────┬──────┘
-       │                  │                  │
-       └──────────────────┼──────────────────┘
-                          │
-                   ┌──────▼──────┐
-                   │   Server    │
-                   │ (localhost: │
-                   │    5000)    │
-                   └─────────────┘
+┌──────────┐    X25519 + ChaCha20     ┌──────────┐
+│  Peer A  │◄────────────────────────►│  Peer B  │
+│  :9000   │      (per-connection)     │  :9001   │
+└────┬─────┘                          └────┬─────┘
+     │                                     │
+     │          ┌──────────┐               │
+     └─────────►│  Peer C  │◄──────────────┘
+                │  :9002   │
+                └──────────┘
 ```
 
-## 📋 Requirements
+Each peer starts a TCP listener. Peers connect to each other with `/connect`. Every connection establishes its own ephemeral X25519 keypair and derives a unique shared key via HKDF-SHA256. Messages are encrypted with ChaCha20-Poly1305 before leaving the wire — different keys per link, so an eavesdropper on one connection can't decrypt traffic on another.
 
-- **Python 3.6+** (for type hints support)
-- **cryptography>=3.4.8** - For encryption features
-- **colorama>=0.4.6** - For colored terminal output (optional)
-- **Network access** - For client-server communication
+When a peer receives a broadcast, it decrypts, displays, then re-encrypts and forwards to all other connected peers. Each hop uses a different key. Duplicate message IDs prevent loops.
 
-## 🚀 Quick Start
-
-### 1. Start the Server
-
-Open a terminal and run:
+## Quick start
 
 ```bash
-python server.py
+# Terminal 1
+python3 peer.py --username Alice --port 9000
+
+# Terminal 2
+python3 peer.py --username Bob --port 9001
 ```
 
-You should see:
+In Bob's terminal:
+
 ```
-🚀 Chat server started on localhost:5000
-📡 Waiting for client connections...
-```
-
-### 2. Connect Clients
-
-Open **multiple terminal windows** and run:
-
-**Terminal 1 (Enhanced UI):**
-```bash
-python3 client_enhanced.py --username Alice
+/connect 127.0.0.1 9000
 ```
 
-**Terminal 2 (Enhanced UI):**
-```bash
-python3 client_enhanced.py --username Bob
+Now any text message broadcasts to all peers in the mesh. `/msg <user> <text>` sends a direct message.
+
+## Usage
+
+```
+python3 peer.py [options]
+
+  --host HOST           Interface to listen on (default: 0.0.0.0)
+  --port PORT           Port to listen on (default: 9000)
+  --username NAME       Your display name
+  --connect HOST:PORT   Connect to a peer on startup
+  --no-encryption       Disable encryption (plaintext)
+  --no-ui               Basic console (no colors)
 ```
 
-**Terminal 3 (Basic UI):**
-```bash
-python3 client.py --username Charlie
-```
+### Commands
 
-### 3. Start Chatting!
+| Command | Description |
+|---|---|
+| `/connect <host> <port>` | Connect to another peer |
+| `/peers` | List connected peers |
+| `/msg <user> <text>` | Send a direct (private) message |
+| `/nick <name>` | Change your nickname |
+| `/clear` | Clear the screen |
+| `/help` | Show available commands |
+| `/quit` | Disconnect and exit |
 
-Once connected, you'll see the enhanced terminal UI:
-```
-==================================================
-🚀 Confluxus
-==================================================
-👤 Username: Alice
-🌐 Server: localhost:5000
-🔒 Status: Connected
-==================================================
-💬 Type your messages below (press Ctrl+C to quit)
-📋 Commands: /help, /clear, /users, /quit
-==================================================
-
-[Alice]: 
-```
-
-Type your messages and press Enter to send them!
-
-## 📖 Usage Examples
-
-### Server Options
+### Examples
 
 ```bash
-# Start server on default port (5000)
-python server.py
+# Three-peer mesh
+python3 peer.py --username Alice --port 9000
+python3 peer.py --username Bob --port 9001       # /connect 127.0.0.1 9000
+python3 peer.py --username Charlie --port 9002    # /connect 127.0.0.1 9000
 
-# Start server on custom host and port
-python server.py --host 0.0.0.0 --port 8080
+# Auto-connect on launch
+python3 peer.py --username Bob --connect 10.0.0.5:9000
 
-# Start server on specific IP
-python server.py --host 192.168.1.100 --port 5000
+# Disable encryption (debug / LAN-only)
+python3 peer.py --username Eve --no-encryption
 ```
 
-### Client Options
+## Cryptographic design
 
-```bash
-# Enhanced client with UI and encryption (recommended)
-python3 client_enhanced.py --username Alice
+| Layer | Mechanism | Rationale |
+|---|---|---|
+| **Key agreement** | X25519 ECDH | Curve25519 — fast, constant-time, widely audited |
+| **Key derivation** | HKDF-SHA256 | NIST SP 800-56C extract-and-expand |
+| **Encryption** | ChaCha20-Poly1305 | AEAD — authenticated encryption + integrity in one pass |
+| **Nonce** | Random 12-byte | Per-message random; no counter management needed for forwarding |
+| **Forward secrecy** | Ephemeral keypairs | Keys generated per-connection, discarded on disconnect |
 
-# Basic client with encryption
-python3 client.py --username Bob
+Each peer-to-peer link gets its own independent key. An attacker compromising one link cannot decrypt traffic on another. If a key is compromised, only messages on that specific connection are exposed — future sessions generate fresh keys.
 
-# Enhanced client without encryption
-python3 client_enhanced.py --username Charlie --no-encryption
+**Replay protection**: every broadcast carries a UUID. Peers track 10,000 recent IDs and drop duplicates.
 
-# Enhanced client with basic console interface
-python3 client_enhanced.py --username David --no-ui
+**Rate limiting**: 30 messages per 10-second sliding window per connection.
 
-# Enhanced client without trace clearance
-python3 client_enhanced.py --username Eve --no-auto-clear
+**Input sanitization**:
+- Usernames: `[a-zA-Z0-9][a-zA-Z0-9_-]{1,19}` only
+- Messages: control characters stripped, max 4096 bytes
+- Maximum 50 concurrent peer connections
 
-# Connect to custom server
-python3 client_enhanced.py --host 192.168.1.100 --port 8080 --username Frank
-```
-
-### Client Commands
-
-- **Type any message** - Sends to all connected clients
-- **`/help`** - Show available commands
-- **`/clear`** - Clear chat history (UI mode only)
-- **`/clear-all`** - Clear all traces completely (UI mode only)
-- **`/users`** - Show connected users (coming soon)
-- **`/quit`** or **`/exit`** or **`/q`** - Disconnect from server
-- **`Ctrl+C`** - Force disconnect
-
-## 🔧 Advanced Configuration
-
-### Trace Clearance Features
-
-The chat system includes comprehensive trace clearance functionality:
-
-**Automatic Trace Clearance:**
-- Server automatically clears all message history when chatroom becomes empty
-- Clients clear local message history when disconnecting
-- Memory is freed and garbage collection is performed
-- No communication traces remain on the system
-
-**Manual Trace Clearance:**
-```bash
-# Clear all traces manually
-python3 trace_clearance.py
-
-# Clear only local traces
-python3 trace_clearance.py --local-only
-
-# Clear traces from specific server
-python3 trace_clearance.py --host 192.168.1.100 --port 5000
-```
-
-**Client Commands:**
-- `/clear-all` - Clear all traces completely (UI mode only)
-
-**Server Options:**
-```bash
-# Disable automatic trace clearance
-python3 server.py --no-auto-clear
-
-# Disable encryption and trace clearance
-python3 server.py --no-encryption --no-auto-clear
-```
-
-### Custom Server Settings
-
-Edit `server.py` to change default settings:
-
-```python
-class ChatServer:
-    def __init__(self, host: str = '0.0.0.0', port: int = 8080):  # Changed defaults
-```
-
-### Network Configuration
-
-For **local network** access:
-```bash
-# Server (on machine A)
-python server.py --host 0.0.0.0 --port 5000
-
-# Client (on machine B)
-python client.py --host 192.168.1.100 --port 5000 --username Bob
-```
-
-For **internet access**, you'll need to:
-1. Configure your router's port forwarding
-2. Use your public IP address
-3. Consider security implications
-
-## 🧪 Testing Confluxus
-
-### Test Scenario 1: Basic Messaging
-
-1. Start server: `python3 server.py`
-2. Connect Alice: `python3 client_enhanced.py --username Alice`
-3. Connect Bob: `python3 client_enhanced.py --username Bob`
-4. Alice types: `Hello everyone!`
-5. Bob should see: `[Alice]: Hello everyone!`
-
-### Test Scenario 2: Multiple Clients
-
-1. Start server
-2. Connect 3+ clients with different usernames
-3. Send messages from each client
-4. Verify all clients receive all messages
-
-### Test Scenario 3: Disconnection Handling
-
-1. Start server and connect multiple clients
-2. Force-close one client (Ctrl+C)
-3. Verify other clients see disconnect notification
-4. Verify server cleans up properly
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**"Address already in use"**
-```bash
-# Kill existing process on port 5000
-lsof -ti:5000 | xargs kill -9
-# Or use different port
-python server.py --port 5001
-```
-
-**"Connection refused"**
-- Ensure server is running
-- Check host/port settings
-- Verify firewall settings
-
-**"Username already taken"**
-- Choose a different username
-- Wait for previous client to disconnect
-
-### Debug Mode
-
-Add debug prints to see detailed communication:
-
-```python
-# In server.py, add:
-print(f"DEBUG: Received from {username}: {message}")
-
-# In client.py, add:
-print(f"DEBUG: Sending: {message}")
-```
-
-## 🔮 Future Enhancements
-
-### Phase 2 Features
-- [ ] Private messaging (`/msg username message`)
-- [ ] User list command (`/users`)
-- [ ] Message timestamps
-- [ ] Typing indicators
-
-### Phase 3 Features
-- [ ] Message persistence (SQLite/JSON)
-- [ ] User authentication
-- [ ] Chat rooms/channels
-- [ ] File sharing
-
-### Phase 4 Features
-- [ ] Web interface
-- [ ] Mobile app
-- [ ] Voice/video calls
-- [ ] Advanced encryption features
-
-## 📝 Code Structure
+## Project structure
 
 ```
-confluxus/
-├── server.py              # Main server implementation
-├── client.py              # Basic client implementation
-├── client_enhanced.py     # Enhanced client with UI and encryption
-├── encryption.py          # Encryption module
-├── terminal_ui.py         # Terminal UI module
-├── trace_clearance.py     # Trace clearance utility
-├── test_chat.py           # Testing utility
-├── requirements.txt       # Dependencies
-└── README.md             # This file
+├── peer.py              # P2P chat application (listener, connector, UI)
+├── encryption.py        # X25519 + ChaCha20-Poly1305 + HKDF crypto context
+├── sanitizer.py         # Input validation, rate limiter, peer limits
+├── terminal_ui.py       # Colored terminal interface (colorama-backed)
+├── trace_clearance.py   # Memory & terminal cleanup utility
+├── demo.py              # Dependency check and usage instructions
+└── requirements.txt     # Dependencies
 ```
 
-### Key Classes
+## Requirements
 
-- **`ChatServer`** - Handles multiple client connections
-- **`ChatClient`** - Basic client implementation
-- **`EnhancedChatClient`** - Enhanced client with UI and encryption
-- **`ChatEncryption`** - Handles message encryption/decryption
-- **`TerminalUI`** - Modern terminal interface
+- **Python 3.6+**
+- **cryptography >= 3.4.8** — X25519, ChaCha20-Poly1305, HKDF
+- **colorama >= 0.4.6** — optional, for colored terminal output
 
-### Key Methods
+Install: `pip install cryptography colorama`
 
-- **Server**: `start()`, `handle_client()`, `broadcast_message()`
-- **Client**: `connect()`, `listen_for_messages()`, `send_messages()`
-- **Enhanced Client**: `start()`, `_send_message()`, `_listen_for_messages()`
-- **Encryption**: `encrypt_message()`, `decrypt_message()`, `set_shared_key()`
-- **UI**: `start()`, `add_message()`, `_handle_command()`
+## License
 
-## 🤝 Contributing
-
-This is an MVP - feel free to:
-1. Report bugs
-2. Suggest features
-3. Submit pull requests
-4. Fork and extend
-
-## 📄 License
-
-MIT License - feel free to use for learning, personal projects, or commercial use.
-
----
-
-**Happy Chatting! 🎉**
-
-*Confluxus - Built with ❤️ using Python sockets*
+MIT

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Terminal UI module for Confluxus
+Terminal UI module for CL Chat
 Provides a modern, terminal-like chat interface with colors and formatting.
 """
 
@@ -111,11 +111,10 @@ class TerminalUI:
     def _show_welcome(self):
         """Display welcome message and connection info."""
         print(f"{Fore.CYAN}{'=' * self.terminal_width}")
-        print(f"{Fore.GREEN}🚀 Confluxus")
+        print(f"{Fore.GREEN}🚀 CL Chat")
         print(f"{Fore.CYAN}{'=' * self.terminal_width}")
         print(f"{Fore.WHITE}👤 Username: {Fore.YELLOW}{self.username}")
-        print(f"{Fore.WHITE}🌐 Server: {Fore.YELLOW}{self.host}:{self.port}")
-        print(f"{Fore.WHITE}🔒 Status: {Fore.GREEN}Connected")
+        print(f"{Fore.WHITE}🌐 Listener: {Fore.YELLOW}{self.host}:{self.port}")
         print(f"{Fore.CYAN}{'=' * self.terminal_width}")
         print(f"{Fore.WHITE}💬 Type your messages below (press Ctrl+C to quit)")
         print(f"{Fore.WHITE}📋 Commands: /help, /clear, /users, /quit")
@@ -223,12 +222,15 @@ class TerminalUI:
         )
         self.add_message(help_msg)
     
-    def _clear_chat(self):
-        """Clear chat history."""
+    def clear_chat(self):
+        """Public: Clear chat history and screen."""
         self.messages.clear()
         self._clear_screen()
         self._show_welcome()
         print("🧹 Chat history cleared")
+
+    def _clear_chat(self):
+        self.clear_chat()
     
     def clear_all_traces(self):
         """Clear all traces and history completely."""
@@ -274,13 +276,17 @@ class TerminalUI:
     def set_input_callback(self, callback: Callable):
         """Set callback for handling user input."""
         self.input_callback = callback
-    
+
+    def set_username(self, name: str):
+        """Update the displayed username."""
+        self.username = name
+
     def set_connection_status(self, connected: bool):
         """Update connection status."""
         self.connected = connected
         if not connected:
-            self.add_error_message("Lost connection to server")
-    
+            self.add_error_message("Disconnected from peer")
+
     def stop(self):
         """Stop the terminal UI."""
         self.running = False
@@ -303,10 +309,9 @@ class SimpleTerminalUI:
         self.running = True
         self.connected = True
         
-        print(f"🚀 Confluxus")
+        print(f"🚀 CL Chat")
         print(f"👤 Username: {self.username}")
-        print(f"🌐 Server: {self.host}:{self.port}")
-        print(f"🔒 Status: Connected")
+        print(f"🌐 Listener: {self.host}:{self.port}")
         print(f"💬 Type your messages below (press Ctrl+C to quit)")
         print(f"📋 Commands: /help, /clear, /users, /quit")
         print("-" * 50)
@@ -371,16 +376,24 @@ class SimpleTerminalUI:
         else:
             print(f"[{timestamp}] [{sender}] {content}")
     
+    def clear_chat(self):
+        """Public: Clear screen."""
+        os.system('cls' if os.name == 'nt' else 'clear')
+
     def set_input_callback(self, callback: Callable):
         """Set callback for handling user input."""
         self.input_callback = callback
-    
+
+    def set_username(self, name: str):
+        """Update the displayed username."""
+        self.username = name
+
     def set_connection_status(self, connected: bool):
         """Update connection status."""
         self.connected = connected
         if not connected:
-            print("❌ Lost connection to server")
-    
+            print("❌ Disconnected from peer")
+
     def stop(self):
         """Stop the simple terminal UI."""
         self.running = False
