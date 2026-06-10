@@ -188,7 +188,8 @@ class TerminalUI:
         self.stop()
     
     def _handle_command(self, command: str):
-        """Handle internal UI commands."""
+        """Handle internal UI commands. Only /help and /clear handled locally; all other
+        commands are forwarded to the peer handler via input_callback (CR-06)."""
         cmd_parts = command.split()
         cmd = cmd_parts[0].lower()
         
@@ -196,17 +197,9 @@ class TerminalUI:
             self._show_help()
         elif cmd == '/clear':
             self._clear_chat()
-        elif cmd == '/clear-all':
-            self.clear_all_traces()
-        elif cmd == '/users':
-            self._show_users()
-        elif cmd in ['/quit', '/exit', '/q']:
-            if self.input_callback:
-                self.input_callback(command)
-                return
-            self.stop()
         else:
-            # Unknown command, treat as message
+            # All other commands (including /users, /quit, /clear-all) are forwarded
+            # to P2PPeer._handle_command via the input callback
             if self.input_callback:
                 self.input_callback(command)
     
@@ -233,27 +226,6 @@ class TerminalUI:
 
     def _clear_chat(self):
         self.clear_chat()
-    
-    def clear_all_traces(self):
-        """Clear all traces and history completely."""
-        self.messages.clear()
-        self._clear_screen()
-        self._show_welcome()
-        
-        # Force garbage collection
-        import gc
-        gc.collect()
-        
-        print("🧹 All traces cleared from terminal UI")
-    
-    def _show_users(self):
-        """Show connected users (placeholder)."""
-        users_msg = ChatMessage(
-            "SYSTEM",
-            "User list feature coming soon!",
-            "system"
-        )
-        self.add_message(users_msg)
     
     def add_message(self, message: ChatMessage):
         """Add a message to the display queue."""
@@ -349,7 +321,8 @@ class SimpleTerminalUI:
         self.stop()
     
     def _handle_command(self, command: str):
-        """Handle internal UI commands."""
+        """Handle internal UI commands. Only /help and /clear handled locally; all other
+        commands are forwarded to the peer handler via input_callback (CR-06)."""
         cmd_parts = command.split()
         cmd = cmd_parts[0].lower()
         
@@ -357,17 +330,8 @@ class SimpleTerminalUI:
             print("Available commands:")
             print("  /help   - Show this help")
             print("  /clear  - Clear screen")
-            print("  /users  - Show connected users")
-            print("  /quit   - Disconnect and exit")
         elif cmd == '/clear':
             os.system('cls' if os.name == 'nt' else 'clear')
-        elif cmd == '/users':
-            print("User list feature coming soon!")
-        elif cmd in ['/quit', '/exit', '/q']:
-            if self.input_callback:
-                self.input_callback(command)
-                return
-            self.stop()
         else:
             if self.input_callback:
                 self.input_callback(command)
