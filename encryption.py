@@ -8,13 +8,17 @@ Messages are encrypted with ChaCha20-Poly1305 using random 12-byte nonces,
 providing authenticated encryption and forward secrecy.
 """
 
-import os
-import hashlib
 import base64
+import binascii
+import hashlib
+import logging
+import os
 from cryptography.hazmat.primitives.asymmetric import x25519
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
+
+logger = logging.getLogger(__name__)
 
 
 class CryptoContext:
@@ -69,7 +73,14 @@ class CryptoContext:
                 info=b'clchat-p2p-v2',
             )
             self._shared_key = hkdf.derive(shared)
-        except Exception:
+        except binascii.Error as e:
+            logger.error("Invalid base64 encoding in peer public key: %s", e)
+            self._shared_key = None
+        except ValueError as e:
+            logger.error("Invalid public key bytes from peer: %s", e)
+            self._shared_key = None
+        except Exception as e:
+            logger.error("Key derivation failed: %s", e)
             self._shared_key = None
 
     @property
