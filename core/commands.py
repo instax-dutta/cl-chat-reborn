@@ -28,6 +28,17 @@ class Commander:
         self._stop = stop_cb
 
     def handle_input(self, text: str):
+        from core.fingerprint_challenge import challenge_queue, FingerprintChallenge
+        import queue as _queue
+        try:
+            challenge = challenge_queue.get_nowait()
+            if text.strip().lower() == 'yes':
+                challenge.accepted = True
+            challenge.result_event.set()
+            return
+        except _queue.Empty:
+            pass
+
         if not text or not isinstance(text, str):
             return
         text = clean_message(text)

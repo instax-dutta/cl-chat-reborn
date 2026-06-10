@@ -50,21 +50,24 @@ class TofuStore:
                 f"    Full: {fingerprint}\n"
                 f"    Possible MITM attack or peer re-installed with new key."
             )
-            self._display_system("Type 'yes' to accept the new fingerprint: ")
         else:
             self._display_system(
                 f"First connection to {display_name} ({host}:{port})\n"
                 f"  Fingerprint: {fingerprint}\n"
                 f"  Verify this fingerprint with the peer out-of-band."
             )
-            self._display_system("Type 'yes' to trust and continue: ")
 
-        try:
-            response = input().strip().lower()
-        except (EOFError, KeyboardInterrupt):
+        from core.fingerprint_challenge import challenge_queue, FingerprintChallenge
+        challenge = FingerprintChallenge(
+            host=host, port=port,
+            fingerprint=fingerprint, display_name=display_name,
+        )
+        challenge_queue.put(challenge)
+        if not challenge.result_event.wait(timeout=30.0):
+            self._display_system("Fingerprint verification timed out \u2014 connection rejected.")
             return False
 
-        if response == 'yes':
+        if challenge.accepted:
             self.save_fingerprint(host, port, fingerprint)
             return True
         return False
