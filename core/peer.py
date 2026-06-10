@@ -7,6 +7,7 @@ from typing import Optional
 from core.seen_ids import SeenIdCache
 from core.connection import (
     PeerConnection,
+    ReconnectState,
     handle_incoming_handshake,
     initiate_outgoing_handshake,
     send_line,
@@ -41,6 +42,8 @@ class P2PPeer:
         self.peers_lock = threading.Lock()
         self.seen_ids = SeenIdCache()
         self.rate_limiter = RateLimiter()
+        self.reconnect_enabled = True
+        self._reconnect_timers: dict = {}
         self.display = Display(None, username, self.peers, self.peers_lock)
         self.tofu = TofuStore(enable_encryption, self.display.display_system)
         self.router = Router(
@@ -55,6 +58,7 @@ class P2PPeer:
             host=host, port=port,
             encryption_enabled=enable_encryption,
             start_time=None,
+            reconnect_cb=self._set_reconnect_enabled,
         )
 
     def start(self):
@@ -134,6 +138,49 @@ class P2PPeer:
         self.display.display_system(f"{conn.username} connected ({addr[0]}:{addr[1]})")
         self._listen_peer(sock)
 
+    def _set_reconnect_enabled(self, enabled: bool):
+        self.reconnect_enabled = enabled
+        if not enabled:
+            for timer in self._reconnect_timers.values():
+                timer.cancel()
+            self._reconnect_timers.clear()
+
+    def _schedule_reconnect(self, host: str, port: int):
+        key = f"{host}:{port}"
+        # Cancel any existing timer for this peer
+        old = self._reconnect_timers.pop(key, None)
+        if old:
+            old.cancel()
+
+        state = ReconnectState(host=host, port=port)
+        delay = state.next_delay()
+
+        def _do_reconnect():
+            self._reconnect_timers.pop(key, None)
+            if not self.running or not self.reconnect_enabled:
+                return
+            self.display.display_system(f"Reconnecting to {host}:{port} (attempt {state.attempt + 1}/{state.max_attempts})...")
+            ok = self.connect_to_peer(host, port)
+            if ok:
+                return
+            state.attempt += 1
+            if state.attempt >= state.max_attempts:
+                self.display.display_system(f"Gave up reconnecting to {host}:{port} after {state.max_attempts} attempts")
+                return
+
+            next_delay = state.next_delay()
+            self.display.display_system(f"Next reconnect in {next_delay}s...")
+            timer = threading.Timer(next_delay, _do_reconnect)
+            timer.daemon = True
+            self._reconnect_timers[key] = timer
+            timer.start()
+
+        self.display.display_system(f"Scheduling reconnect in {delay}s...")
+        timer = threading.Timer(delay, _do_reconnect)
+        timer.daemon = True
+        self._reconnect_timers[key] = timer
+        timer.start()
+
     def connect_to_peer(self, host: str, port: int) -> bool:
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -150,6 +197,7 @@ class P2PPeer:
                 sock.close()
                 self.display.display_system(error)
                 return False
+            conn.is_outbound = True
 
             if conn.crypto.ready and self.encryption_enabled:
                 fingerprint = conn.crypto.get_fingerprint()
@@ -211,6 +259,8 @@ class P2PPeer:
                 sock.close()
             except Exception:
                 pass
+            if conn.is_outbound and self.reconnect_enabled:
+                self._schedule_reconnect(conn.address[0], conn.address[1])
 
     def _basic_input_loop(self):
         print(f"\nCL Chat P2P \u2014 Listening on {self.host}:{self.port}")
@@ -235,6 +285,9 @@ class P2PPeer:
                 except Exception:
                     pass
             self.peers.clear()
+        for timer in self._reconnect_timers.values():
+            timer.cancel()
+        self._reconnect_timers.clear()
         if self.listener_socket:
             try:
                 self.listener_socket.close()

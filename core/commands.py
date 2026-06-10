@@ -22,6 +22,7 @@ class Commander:
         port: int = 9000,
         encryption_enabled: bool = True,
         start_time: Optional[float] = None,
+        reconnect_cb: Optional[Callable[[bool], None]] = None,
     ):
         self.username = username
         self.peers = peers
@@ -35,6 +36,7 @@ class Commander:
         self._port = port
         self._encryption_enabled = encryption_enabled
         self._start_time = start_time or time.time()
+        self._reconnect_cb = reconnect_cb
 
     def handle_input(self, text: str):
         from core.fingerprint_challenge import challenge_queue, FingerprintChallenge
@@ -101,6 +103,18 @@ class Commander:
                 self.display.ui.set_username(self.username)
             self.display.display_system(f"Nickname changed: {old} -> {self.username}")
             self._send_nick_notification(old)
+
+        elif command == '/reconnect' and len(parts) >= 2:
+            if parts[1] == 'off':
+                if self._reconnect_cb:
+                    self._reconnect_cb(False)
+                self.display.display_system("Reconnect disabled")
+            elif parts[1] == 'on':
+                if self._reconnect_cb:
+                    self._reconnect_cb(True)
+                self.display.display_system("Reconnect enabled")
+            else:
+                self.display.display_system("Usage: /reconnect on|off")
 
         elif command == '/clear':
             if self.display.ui and hasattr(self.display.ui, 'clear_chat'):

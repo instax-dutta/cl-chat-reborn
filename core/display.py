@@ -57,6 +57,7 @@ class Display:
             "  /msg <user> <msg>       - Send direct message\n"
             "  /nick <name>            - Change your nickname\n"
             "  /status                 - Show session info\n"
+            "  /reconnect on|off       - Enable/disable auto-reconnect\n"
             "  /history [N]            - Show last N messages\n"
             "  /clear                  - Clear screen\n"
             "  /help                   - Show this help\n"

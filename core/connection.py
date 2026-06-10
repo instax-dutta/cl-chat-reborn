@@ -1,17 +1,31 @@
 import socket
 import json
+from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from encryption import CryptoContext
 from sanitizer import check_username
 
 
+@dataclass
+class ReconnectState:
+    host: str
+    port: int
+    attempt: int = 0
+    max_attempts: int = 5
+    base_delay: float = 2.0
+
+    def next_delay(self) -> float:
+        return min(self.base_delay * (2 ** self.attempt), 32.0)
+
+
 class PeerConnection:
-    def __init__(self, sock: socket.socket, address: Tuple):
+    def __init__(self, sock: socket.socket, address: Tuple, is_outbound: bool = False):
         self.socket = sock
         self.username = ""
         self.address = address
         self.crypto = CryptoContext(enabled=False)
+        self.is_outbound = is_outbound
 
     def __repr__(self):
         return f"<Peer {self.username} @ {self.address[0]}:{self.address[1]}>"
