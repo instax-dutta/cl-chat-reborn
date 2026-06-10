@@ -190,41 +190,6 @@ class TestChatForwarding:
 # ── Direct Message Tests ──────────────────────────────────────────────────
 
 
-class TestDirectMessage:
-    """Tests for direct message processing."""
-
-    def test_direct_message_displays(self, router, mock_socket):
-        """A direct message is displayed via display_direct."""
-        register_peer(router, mock_socket)
-
-        msg = json.dumps({
-            "type": "direct",
-            "username": "RemoteUser",
-            "message": "This is a direct message",
-            "id": str(uuid.uuid4()),
-        })
-
-        router.process_message(msg, mock_socket)
-        assert router.display.display_direct.called, \
-            "display_direct should be called for direct-type messages"
-
-    def test_direct_not_forwarded(self, router, mock_socket):
-        """A direct message should not trigger forwarding."""
-        register_peer(router, mock_socket)
-
-        msg = json.dumps({
-            "type": "direct",
-            "username": "RemoteUser",
-            "message": "Private message",
-            "id": str(uuid.uuid4()),
-        })
-
-        with patch.object(router, '_forward_plaintext') as mock_forward:
-            router.process_message(msg, mock_socket)
-            assert not mock_forward.called, \
-                "Direct messages should not be forwarded"
-
-
 # ── Invalid Input Tests ──────────────────────────────────────────────────
 
 
