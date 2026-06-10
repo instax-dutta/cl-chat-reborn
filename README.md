@@ -142,7 +142,7 @@ Each peer-to-peer link gets its own independent key. An attacker compromising on
 ├── terminal_ui.py       # Colored terminal interface (colorama-backed)
 ├── trace_clearance.py   # Memory & terminal cleanup (ANSI escapes)
 ├── demo.py              # Dependency check and usage instructions
-├── tests/               # pytest test suite (69 tests)
+├── tests/               # pytest test suite (81 tests)
 │   ├── test_sanitizer.py
 │   ├── test_encryption.py
 │   ├── test_peer.py
@@ -153,6 +153,11 @@ Each peer-to-peer link gets its own independent key. An attacker compromising on
 │       ├── test_commands.py
 │       ├── test_connection.py
 │       ├── test_display.py
+│       ├── test_dm.py
+│       ├── test_mesh_ttl.py
+│       ├── test_reconnect.py
+│       ├── test_discovery.py
+│       ├── test_direct_only.py
 │       └── test_tofu.py
 ├── pyproject.toml       # Project metadata, ruff, mypy config
 ├── THREAT_MODEL.md      # Security threat model
