@@ -12,5 +12,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install cryptography colorama pytest pytest-cov
+      - run: pip install cryptography colorama zeroconf pytest pytest-cov
       - run: pytest tests/ -v --tb=short
