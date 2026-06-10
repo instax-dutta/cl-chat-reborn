@@ -17,12 +17,10 @@ def clear_memory():
 
 def clear_terminal():
     """Clear terminal screen and scrollback buffer."""
-    os.system('cls' if os.name == 'nt' else 'clear')
-    if os.name != 'nt':
-        try:
-            os.system('printf "\033[3J"')
-        except Exception:
-            pass
+    if os.name == 'nt':
+        os.system('cls')
+    else:
+        print('\033[3J\033[H\033[2J', end='')
     print("Terminal cleared")
 
 
