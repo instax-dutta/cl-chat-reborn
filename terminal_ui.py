@@ -201,7 +201,9 @@ class TerminalUI:
         elif cmd == '/users':
             self._show_users()
         elif cmd in ['/quit', '/exit', '/q']:
-            print(f"{Fore.YELLOW}👋 Goodbye!")
+            if self.input_callback:
+                self.input_callback(command)
+                return
             self.stop()
         else:
             # Unknown command, treat as message
@@ -289,6 +291,8 @@ class TerminalUI:
 
     def stop(self):
         """Stop the terminal UI."""
+        if not self.running:
+            return
         self.running = False
         self.connected = False
         print(f"\n{Fore.YELLOW}🛑 Terminal UI stopped")
@@ -360,7 +364,9 @@ class SimpleTerminalUI:
         elif cmd == '/users':
             print("User list feature coming soon!")
         elif cmd in ['/quit', '/exit', '/q']:
-            print("👋 Goodbye!")
+            if self.input_callback:
+                self.input_callback(command)
+                return
             self.stop()
         else:
             if self.input_callback:
@@ -396,6 +402,8 @@ class SimpleTerminalUI:
 
     def stop(self):
         """Stop the simple terminal UI."""
+        if not self.running:
+            return
         self.running = False
         self.connected = False
         print("🛑 Terminal UI stopped")
