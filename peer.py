@@ -30,6 +30,7 @@ def main():
     parser.add_argument("--no-ui", action="store_true", help="Use basic console interface")
     parser.add_argument("--mesh-ttl", type=int, default=3, help="Mesh hop limit (default: 3)")
     parser.add_argument("--discover", action="store_true", help="Enable mDNS LAN peer discovery")
+    parser.add_argument("--direct-only", action="store_true", help="Disable mesh forwarding. Only directly connected peers receive messages.")
     parser.add_argument("--connect", help="Connect to a peer on startup (host:port)")
 
     args = parser.parse_args()
@@ -49,6 +50,7 @@ def main():
         use_ui=not args.no_ui,
         mesh_ttl=args.mesh_ttl,
         enable_discovery=args.discover,
+        direct_only=args.direct_only,
     )
 
     try:

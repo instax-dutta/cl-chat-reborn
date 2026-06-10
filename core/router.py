@@ -20,6 +20,7 @@ class Router:
         remove_peer_cb: Callable[[socket.socket], None],
         own_username: str,
         mesh_ttl: int = 3,
+        direct_only: bool = False,
     ):
         self.seen_ids = seen_ids
         self.rate_limiter = rate_limiter
@@ -29,6 +30,7 @@ class Router:
         self._remove_peer = remove_peer_cb
         self.own_username = own_username
         self.mesh_ttl = mesh_ttl
+        self.direct_only = direct_only
 
     def process_message(self, raw: str, source_sock: socket.socket):
         with self.peers_lock:
@@ -81,6 +83,8 @@ class Router:
             self.display.display_system(f"{old_name} changed nickname to {new_name}")
 
     def _forward_plaintext(self, sender: str, plaintext: str, exclude_sock: socket.socket, ttl: int = 3):
+        if self.direct_only:
+            return
         msg_id = str(uuid.uuid4())
         self.seen_ids.seen(msg_id)
 
