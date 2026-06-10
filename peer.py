@@ -55,15 +55,17 @@ class P2PPeer:
             self._basic_input_loop()
 
     def _recv_line(self, sock: socket.socket, timeout: float = 5.0) -> Optional[str]:
-        """Read one \\n-terminated line from socket."""
+        """Read one \n-terminated line from socket using 4096-byte buffered reads."""
         sock.settimeout(timeout)
         buf = b""
         try:
-            while True:
-                c = sock.recv(1)
-                if not c or c == b'\n':
-                    return buf.decode('utf-8')
-                buf += c
+            while b'\n' not in buf:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    return None
+                buf += chunk
+            line, buf = buf.split(b'\n', 1)
+            return line.decode('utf-8', errors='replace')
         except (socket.timeout, socket.error):
             return None
         finally:
