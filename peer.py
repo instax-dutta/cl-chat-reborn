@@ -9,6 +9,8 @@ import threading
 import json
 import uuid
 import sys
+import os
+import hashlib
 import time
 from collections import deque
 from typing import Dict, Optional, Tuple
@@ -133,6 +135,12 @@ class P2PPeer:
             if peer_pubkey:
                 conn.crypto.derive_shared(peer_pubkey)
 
+                # Store peer fingerprint for MITM detection (CR-03)
+                if peer_pubkey and self.encryption_enabled:
+                    fingerprint = conn.crypto.get_fingerprint()
+                    self._save_fingerprint(addr[0], addr[1], fingerprint)
+                    self._display_system(f"Peer {peer_name} fingerprint: {fingerprint}")
+
             with self.peers_lock:
                 self.peers[sock] = conn
 
@@ -182,6 +190,14 @@ class P2PPeer:
             conn.username = peer_name
             if peer_pubkey:
                 conn.crypto.derive_shared(peer_pubkey)
+
+                # Fingerprint verification (MITM protection, CR-03)
+                if peer_pubkey and self.encryption_enabled:
+                    fingerprint = conn.crypto.get_fingerprint()
+                    if not self._verify_fingerprint(host, port, fingerprint, peer_name):
+                        sock.close()
+                        self._display_system(f"Connection to {peer_name} rejected \u2014 fingerprint not confirmed")
+                        return False
 
             hs = json.dumps({"u": self.username, "k": conn.crypto.get_public_key()})
             self._send_line(sock, hs)
@@ -536,6 +552,87 @@ class P2PPeer:
         if self.auto_clear:
             import gc
             gc.collect()
+
+    # ── TOFU fingerprint helpers (CR-03) ──────────────────────
+
+    @staticmethod
+    def _known_hosts_path() -> str:
+        """Return path to TOFU known_hosts file."""
+        return os.path.join(os.path.expanduser('~'), '.clchat', 'known_hosts.json')
+
+    @staticmethod
+    def _load_known_hosts() -> dict:
+        """Load TOFU known_hosts JSON. Returns empty dict if file missing or corrupt."""
+        path = P2PPeer._known_hosts_path()
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {}
+
+    @staticmethod
+    def _save_fingerprint(host: str, port: int, fingerprint: str):
+        """Save a peer fingerprint to the TOFU known_hosts file."""
+        path = P2PPeer._known_hosts_path()
+        hosts = P2PPeer._load_known_hosts()
+        hosts[f"{host}:{port}"] = fingerprint
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        # Use a tmpfile + rename to prevent partial writes
+        tmp = path + '.tmp'
+        with open(tmp, 'w') as f:
+            json.dump(hosts, f, indent=2)
+        os.replace(tmp, path)
+
+    def _verify_fingerprint(self, host: str, port: int, fingerprint: str, display_name: str) -> bool:
+        """TOFU verification: check known_hosts, prompt user if unknown or changed.
+
+        Args:
+            host: Remote host address
+            port: Remote port
+            fingerprint: Peer's SHA-256 fingerprint string
+            display_name: Peer's username for display
+        Returns:
+            True if fingerprint is accepted, False to abort connection
+        """
+        if not fingerprint:
+            return True  # encryption disabled — skip verification
+
+        hosts = self._load_known_hosts()
+        key = f"{host}:{port}"
+
+        if key in hosts:
+            stored = hosts[key]
+            if stored == fingerprint:
+                return True  # Fingerprint matches — continue
+
+            # Mismatch — warn user
+            self._display_system(
+                f"\u26a0\ufe0f  SECURITY WARNING: {display_name} ({host}:{port}) fingerprint mismatch!\n"
+                f"    Previous: {stored[:20]}...\n"
+                f"    Current:  {fingerprint[:20]}...\n"
+                f"    Full: {fingerprint}\n"
+                f"    Possible MITM attack or peer re-installed with new key."
+            )
+            self._display_system("Type 'yes' to accept the new fingerprint: ")
+        else:
+            # First connection — prompt for verification
+            self._display_system(
+                f"First connection to {display_name} ({host}:{port})\n"
+                f"  Fingerprint: {fingerprint}\n"
+                f"  Verify this fingerprint with the peer out-of-band (e.g., in person, via another channel)."
+            )
+            self._display_system("Type 'yes' to trust and continue: ")
+
+        # Get user confirmation
+        try:
+            response = input().strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            return False
+
+        if response == 'yes':
+            self._save_fingerprint(host, port, fingerprint)
+            return True
+        return False
 
 
 class PeerConnection:
