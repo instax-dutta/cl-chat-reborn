@@ -4,7 +4,7 @@ Input sanitization and rate limiting for CL Chat.
 
 import re
 import time
-from collections import defaultdict
+from collections import defaultdict, deque
 
 
 USERNAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_-]{1,19}$')
@@ -49,14 +49,14 @@ class RateLimiter:
     def __init__(self, max_events: int = RATE_LIMIT_MAX, window: float = RATE_LIMIT_WINDOW):
         self.max_events = max_events
         self.window = window
-        self._buckets: dict = defaultdict(list)
+        self._buckets: dict = defaultdict(deque)
 
     def allow(self, key: str) -> bool:
         now = time.monotonic()
         times = self._buckets[key]
         cutoff = now - self.window
         while times and times[0] < cutoff:
-            times.pop(0)
+                times.popleft()
         if len(times) >= self.max_events:
             return False
         times.append(now)
