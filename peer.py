@@ -10,6 +10,7 @@ import json
 import uuid
 import sys
 import time
+from collections import deque
 from typing import Dict, Optional, Tuple
 
 from encryption import CryptoContext
@@ -32,7 +33,8 @@ class P2PPeer:
         self.peers: Dict[socket.socket, 'PeerConnection'] = {}
         self.listener_socket: Optional[socket.socket] = None
         self.peers_lock = threading.Lock()
-        self.seen_ids: set = set()
+        self.seen_ids_deque: deque = deque(maxlen=10000)
+        self.seen_ids_set: set = set()
         self.seen_ids_lock = threading.Lock()
         self.rate_limiter = RateLimiter()
 
@@ -245,12 +247,14 @@ class P2PPeer:
         msg_id = data.get("id", "")
 
         with self.seen_ids_lock:
-            if msg_id and msg_id in self.seen_ids:
+            if msg_id and msg_id in self.seen_ids_set:
                 return
             if msg_id:
-                self.seen_ids.add(msg_id)
-                if len(self.seen_ids) > 10000:
-                    self.seen_ids.clear()
+                if len(self.seen_ids_deque) >= 10000:
+                    evicted = self.seen_ids_deque.popleft()
+                    self.seen_ids_set.discard(evicted)
+                self.seen_ids_deque.append(msg_id)
+                self.seen_ids_set.add(msg_id)
 
         if msg_type in ("chat", "direct"):
             plaintext = conn.crypto.decrypt(content)
@@ -275,7 +279,11 @@ class P2PPeer:
     def _forward_plaintext(self, sender: str, plaintext: str, exclude_sock: socket.socket):
         msg_id = str(uuid.uuid4())
         with self.seen_ids_lock:
-            self.seen_ids.add(msg_id)
+            if len(self.seen_ids_deque) >= 10000:
+                evicted = self.seen_ids_deque.popleft()
+                self.seen_ids_set.discard(evicted)
+            self.seen_ids_deque.append(msg_id)
+            self.seen_ids_set.add(msg_id)
 
         with self.peers_lock:
             for sock, peer in list(self.peers.items()):
@@ -296,7 +304,11 @@ class P2PPeer:
     def _broadcast_plaintext(self, plaintext: str):
         msg_id = str(uuid.uuid4())
         with self.seen_ids_lock:
-            self.seen_ids.add(msg_id)
+            if len(self.seen_ids_deque) >= 10000:
+                evicted = self.seen_ids_deque.popleft()
+                self.seen_ids_set.discard(evicted)
+            self.seen_ids_deque.append(msg_id)
+            self.seen_ids_set.add(msg_id)
 
         with self.peers_lock:
             for sock, peer in list(self.peers.items()):
