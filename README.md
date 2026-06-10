@@ -1,5 +1,7 @@
 # CL-CHAT
 
+![CI](https://github.com/instax-dutta/cl-chat-reborn/actions/workflows/ci.yml/badge.svg)
+
 Peer-to-peer command-line chat with **per-connection ECDH encryption**, mesh message propagation, and TOFU fingerprint verification. No servers, no accounts, no logs.
 
 ## Features
