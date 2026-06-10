@@ -5,3 +5,6 @@ cryptography>=3.4.8
 
 # Optional: colored terminal UI
 colorama>=0.4.6
+
+# Testing
+pytest>=7.0
