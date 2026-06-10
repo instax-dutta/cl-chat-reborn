@@ -9,7 +9,7 @@ class TestCommander:
         display = MagicMock()
         c = Commander(
             "TestUser", {}, threading.Lock(), display,
-            MagicMock(), MagicMock(), MagicMock(),
+            MagicMock(), MagicMock(), MagicMock(), MagicMock(),
         )
         c.handle_command("/nonexistent")
         display.display_system.assert_called_once()

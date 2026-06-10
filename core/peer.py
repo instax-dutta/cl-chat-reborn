@@ -48,6 +48,7 @@ class P2PPeer:
             username, self.peers, self.peers_lock,
             self.display, self.router,
             self.connect_to_peer, self._remove_peer,
+            self.stop,
         )
 
     def start(self):

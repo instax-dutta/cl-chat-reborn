@@ -16,6 +16,7 @@ class Commander:
         router,
         connect_cb: Callable[[str, int], bool],
         remove_peer_cb: Callable[[socket.socket], None],
+        stop_cb: Callable[[], None],
     ):
         self.username = username
         self.peers = peers
@@ -24,6 +25,7 @@ class Commander:
         self.router = router
         self._connect = connect_cb
         self._remove_peer = remove_peer_cb
+        self._stop = stop_cb
 
     def handle_input(self, text: str):
         if not text or not isinstance(text, str):
@@ -88,8 +90,7 @@ class Commander:
             self.display.show_help()
 
         elif command in ('/quit', '/exit', '/q'):
-            from core.peer import P2PPeer
-            pass
+            self._stop()
 
         else:
             self.display.display_system(f"Unknown: {command}. Type /help")
