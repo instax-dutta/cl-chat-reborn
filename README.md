@@ -1,4 +1,4 @@
-# Confluxus
+# CL-CHAT
 
 Peer-to-peer command-line chat with **per-connection ECDH encryption**, mesh message propagation, and TOFU fingerprint verification. No servers, no accounts, no logs.
 
