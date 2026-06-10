@@ -141,8 +141,7 @@ class P2PPeer:
             if self.running:
                 self._display_system(f"Connection error from {addr}: {e}")
             sock.close()
-        finally:
-            self._remove_peer(sock)
+
 
     def connect_to_peer(self, host: str, port: int) -> bool:
         try:
