@@ -29,6 +29,7 @@ def main():
     parser.add_argument("--no-encryption", action="store_true", help="Disable encryption")
     parser.add_argument("--no-ui", action="store_true", help="Use basic console interface")
     parser.add_argument("--mesh-ttl", type=int, default=3, help="Mesh hop limit (default: 3)")
+    parser.add_argument("--discover", action="store_true", help="Enable mDNS LAN peer discovery")
     parser.add_argument("--connect", help="Connect to a peer on startup (host:port)")
 
     args = parser.parse_args()
@@ -47,6 +48,7 @@ def main():
         enable_encryption=not args.no_encryption,
         use_ui=not args.no_ui,
         mesh_ttl=args.mesh_ttl,
+        enable_discovery=args.discover,
     )
 
     try:

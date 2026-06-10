@@ -20,18 +20,31 @@ from sanitizer import check_username, validate_peer_count, RateLimiter
 from terminal_ui import create_ui
 
 
+def _on_peer_discovered(display, peers_lock, peers, host, port, username):
+    """Callback when mDNS discovers a peer on LAN."""
+    with peers_lock:
+        already = any(p.username == username for p in peers.values())
+    if not already:
+        display.display_system(
+            f"Peer {username} found on LAN ({host}:{port})"
+            f" \u2014 /connect {host} {port} to connect"
+        )
+
+
 __version__ = "0.2.0"
 
 
 class P2PPeer:
     def __init__(self, host: str = '0.0.0.0', port: int = 9000, username: str = None,
                  enable_encryption: bool = True, use_ui: bool = True, auto_clear: bool = True,
-                 mesh_ttl: int = 3):
+                 mesh_ttl: int = 3, enable_discovery: bool = False):
         self.host = host
         self.port = port
         self.username = username
         self.encryption_enabled = enable_encryption
         self.mesh_ttl = mesh_ttl
+        self.enable_discovery = enable_discovery
+        self._discovery = None
         self.running = False
         self.ui = None
         self.use_ui = use_ui
@@ -79,6 +92,15 @@ class P2PPeer:
         if not self._start_listener():
             self.running = False
             return
+
+        if self.enable_discovery:
+            from core.discovery import LocalDiscovery
+            self._discovery = LocalDiscovery(
+                self.username, self.port,
+                lambda name, ip, port: _on_peer_discovered(
+                    self.display, self.peers_lock, self.peers, ip, port, name
+                ),
+            )
 
         if self.use_ui:
             self.ui = create_ui(self.username, self.host, self.port)
@@ -288,6 +310,9 @@ class P2PPeer:
         for timer in self._reconnect_timers.values():
             timer.cancel()
         self._reconnect_timers.clear()
+        if self._discovery:
+            self._discovery.close()
+            self._discovery = None
         if self.listener_socket:
             try:
                 self.listener_socket.close()
