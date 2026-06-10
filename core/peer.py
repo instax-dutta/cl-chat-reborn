@@ -1,4 +1,5 @@
 import socket
+import time
 import threading
 import json
 from typing import Optional
@@ -51,10 +52,14 @@ class P2PPeer:
             self.display, self.router,
             self.connect_to_peer, self._remove_peer,
             self.stop,
+            host=host, port=port,
+            encryption_enabled=enable_encryption,
+            start_time=None,
         )
 
     def start(self):
         self.running = True
+        self.cmdr._start_time = time.time()
 
         if not self.encryption_enabled:
             import threading

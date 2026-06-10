@@ -1,5 +1,6 @@
 import json
 import socket
+import time
 import threading
 from typing import Callable, Optional
 
@@ -17,6 +18,10 @@ class Commander:
         connect_cb: Callable[[str, int], bool],
         remove_peer_cb: Callable[[socket.socket], None],
         stop_cb: Callable[[], None],
+        host: str = "0.0.0.0",
+        port: int = 9000,
+        encryption_enabled: bool = True,
+        start_time: Optional[float] = None,
     ):
         self.username = username
         self.peers = peers
@@ -26,6 +31,10 @@ class Commander:
         self._connect = connect_cb
         self._remove_peer = remove_peer_cb
         self._stop = stop_cb
+        self._host = host
+        self._port = port
+        self._encryption_enabled = encryption_enabled
+        self._start_time = start_time or time.time()
 
     def handle_input(self, text: str):
         from core.fingerprint_challenge import challenge_queue, FingerprintChallenge
@@ -97,6 +106,19 @@ class Commander:
             if self.display.ui and hasattr(self.display.ui, 'clear_chat'):
                 self.display.ui.clear_chat()
 
+        elif command == '/status':
+            self._show_status()
+
+        elif command == '/history':
+            parts = cmd.split()
+            n = 10
+            if len(parts) >= 2:
+                try:
+                    n = max(1, int(parts[1]))
+                except ValueError:
+                    pass
+            self.display.show_history(n)
+
         elif command == '/help':
             self.display.show_help()
 
@@ -119,6 +141,32 @@ class Commander:
                     sock.sendall(payload.encode('utf-8'))
                 except socket.error:
                     self._remove_peer(sock)
+
+    def _show_status(self):
+        uptime = time.time() - self._start_time
+        hours, rem = divmod(int(uptime), 3600)
+        minutes, seconds = divmod(rem, 60)
+        uptime_str = f"{hours}h {minutes}m {seconds}s"
+
+        with self.peers_lock:
+            peer_count = len(self.peers)
+            peer_list = [f"  {c.username} @ {c.address[0]}:{c.address[1]}" for c in self.peers.values()]
+
+        try:
+            local_ip = socket.gethostbyname(socket.gethostname())
+        except Exception:
+            local_ip = "unknown"
+
+        lines = [
+            f"Username:  {self.username}",
+            f"Listen:    {self._host}:{self._port}",
+            f"Local IP:  {local_ip}",
+            f"Encryption: {'ON' if self._encryption_enabled else 'OFF'}",
+            f"Uptime:    {uptime_str}",
+            f"Peers:     {peer_count}",
+        ] + peer_list
+
+        self.display.display_system('\n'.join(lines))
 
     def update_peer_username(self, sock: socket.socket, new_name: str):
         with self.peers_lock:

@@ -1,5 +1,6 @@
 import time
 import threading
+from collections import deque
 from typing import Optional
 
 
@@ -9,8 +10,10 @@ class Display:
         self.username = username
         self._peers = peers
         self._peers_lock = peers_lock
+        self.history: deque = deque(maxlen=500)
 
     def display_chat(self, sender: str, message: str):
+        self.history.append(("chat", sender, message))
         if self.ui:
             self.ui.add_chat_message(sender, message)
         else:
@@ -19,6 +22,7 @@ class Display:
             print(f"[{self.username}]: ", end="", flush=True)
 
     def display_direct(self, sender: str, message: str):
+        self.history.append(("direct", sender, message))
         tag = "DM from" if not sender.startswith("you") else "DM"
         text = f"[{tag} {sender}]: {message}"
         if self.ui:
@@ -28,6 +32,7 @@ class Display:
             print(f"[{self.username}]: ", end="", flush=True)
 
     def display_system(self, message: str):
+        self.history.append(("system", "", message))
         if self.ui:
             self.ui.add_system_message(message)
         else:
@@ -51,9 +56,22 @@ class Display:
             "  /peers                  - List connected peers\n"
             "  /msg <user> <msg>       - Send direct message\n"
             "  /nick <name>            - Change your nickname\n"
+            "  /status                 - Show session info\n"
+            "  /history [N]            - Show last N messages\n"
             "  /clear                  - Clear screen\n"
             "  /help                   - Show this help\n"
             "  /quit                   - Disconnect and exit\n"
             "\n"
             "Any other text broadcasts to all connected peers"
         )
+
+    def show_history(self, n: int = 10):
+        lines = []
+        for kind, sender, msg in list(self.history)[-n:]:
+            if kind == "chat":
+                lines.append(f"[{sender}]: {msg}")
+            elif kind == "direct":
+                lines.append(f"[DM {sender}]: {msg}")
+            else:
+                lines.append(f"[SYSTEM]: {msg}")
+        self.display_system('\n'.join(lines) if lines else "No history")
