@@ -54,6 +54,17 @@ class P2PPeer:
     def start(self):
         self.running = True
 
+        if not self.encryption_enabled:
+            import threading
+            import time
+            def _warn():
+                while self.running:
+                    self.display.display_system(
+                        "\u26a0  ENCRYPTION DISABLED \u2014 all messages are plaintext on the wire"
+                    )
+                    time.sleep(60)
+            threading.Thread(target=_warn, daemon=True).start()
+
         if not self._start_listener():
             self.running = False
             return

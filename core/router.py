@@ -5,6 +5,7 @@ import threading
 from typing import Callable
 
 from core.seen_ids import SeenIdCache
+from core.dm import encode_dm, decode_dm
 from sanitizer import RateLimiter
 
 
@@ -54,15 +55,19 @@ class Router:
             plaintext = conn.crypto.decrypt(content)
             if plaintext is None:
                 return
+            if not conn.crypto.ready:
+                sender = f"[PLAIN] {sender}"
         else:
             plaintext = content
 
         if msg_type == "chat":
-            self.display.display_chat(sender, plaintext)
-            self._forward_plaintext(sender, plaintext, source_sock)
-
-        elif msg_type == "direct":
-            self.display.display_direct(sender, plaintext)
+            is_dm, dm_target, body = decode_dm(plaintext)
+            if is_dm:
+                if dm_target == self.own_username:
+                    self.display.display_direct(sender, body)
+                return
+            self.display.display_chat(sender, body)
+            self._forward_plaintext(sender, body, source_sock)
 
         elif msg_type == "nick_change":
             old_name = data.get("old", "")
@@ -122,9 +127,10 @@ class Router:
             self.display.display_system(f"No peer '{target_username}' connected")
             return
 
-        encrypted = target_crypto.encrypt(plaintext)
+        dm_plaintext = encode_dm(target_username, plaintext)
+        encrypted = target_crypto.encrypt(dm_plaintext)
         payload = json.dumps({
-            "type": "direct",
+            "type": "chat",
             "username": self.own_username,
             "message": encrypted,
         }) + '\n'
