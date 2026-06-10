@@ -9,6 +9,7 @@ providing authenticated encryption and forward secrecy.
 """
 
 import os
+import hashlib
 import base64
 from cryptography.hazmat.primitives.asymmetric import x25519
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
@@ -38,6 +39,19 @@ class CryptoContext:
         pub = self._private_key.public_key()
         raw = pub.public_bytes_raw()
         return base64.b64encode(raw).decode()
+
+    def get_fingerprint(self) -> str:
+        """Return SHA-256 fingerprint of X25519 public key as colon-separated hex.
+
+        Returns empty string if encryption is disabled or no keypair exists.
+        Format matches SSH-style fingerprint for user-friendly comparison.
+        """
+        if not self.enabled or not self._private_key:
+            return ""
+        pub = self._private_key.public_key()
+        raw = pub.public_bytes_raw()
+        digest = hashlib.sha256(raw).hexdigest()
+        return ':'.join(digest[i:i+2] for i in range(0, len(digest), 2))
 
     def derive_shared(self, peer_pubkey_b64: str):
         """Derive shared key from peer's base64-encoded public key via X25519 + HKDF."""
