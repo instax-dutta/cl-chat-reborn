@@ -2,11 +2,15 @@
 Shared pytest fixtures for CL Chat test suite.
 """
 
-import pytest
+import threading
 from unittest.mock import MagicMock
 
+import pytest
+
 from encryption import CryptoContext
-from peer import P2PPeer
+from core.seen_ids import SeenIdCache
+from core.router import Router
+from sanitizer import RateLimiter
 
 
 @pytest.fixture
@@ -57,15 +61,12 @@ def mock_socket():
 
 
 @pytest.fixture
-def mock_peer():
-    """P2PPeer with no UI, no listener, and running=True."""
-    p = P2PPeer(
-        host='127.0.0.1',
-        port=0,
-        username='TestUser',
-        enable_encryption=True,
-        use_ui=False,
-        auto_clear=False,
-    )
-    p.running = True
-    return p
+def router():
+    """Router with mocked display and remove_peer callback."""
+    seen_ids = SeenIdCache(maxsize=100)
+    rate_limiter = RateLimiter()
+    peers = {}
+    peers_lock = threading.Lock()
+    display = MagicMock()
+    remove_peer = MagicMock()
+    return Router(seen_ids, rate_limiter, peers, peers_lock, display, remove_peer, 'TestUser')

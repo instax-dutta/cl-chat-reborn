@@ -168,3 +168,19 @@ class TestRateLimiter:
         rl = RateLimiter(max_events=3, window=60)
         rl.reset("nonexistent")  # should not raise
         assert rl.allow("key") is True
+
+    def test_evict_expired_removes_stale(self):
+        """evict_expired removes entries older than ttl."""
+        rl = RateLimiter(max_events=3, window=60, ttl=0.01)
+        rl.allow("stale_key")
+        import time
+        time.sleep(0.02)
+        rl.evict_expired()
+        assert "stale_key" not in rl._buckets
+
+    def test_evict_expired_preserves_active(self):
+        """evict_expired keeps entries touched within ttl."""
+        rl = RateLimiter(max_events=3, window=60, ttl=3600)
+        rl.allow("active_key")
+        rl.evict_expired()
+        assert "active_key" in rl._buckets

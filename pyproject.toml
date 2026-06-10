@@ -1,0 +1,16 @@
+[project]
+name = "cl-chat-reborn"
+version = "0.2.0"
+requires-python = ">=3.9"
+dependencies = ["cryptography>=41.0", "colorama>=0.4.6", "zeroconf>=0.128"]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov", "mypy", "ruff"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.mypy]
+strict = true
+python_version = "3.9"

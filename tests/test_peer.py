@@ -1,5 +1,5 @@
 """
-Tests for peer.py — P2PPeer message processing, dedup, forwarding,
+Tests for core.router — Router.process_message, dedup, forwarding,
 nick change, direct messages, and rate limiting with mocked sockets.
 """
 
@@ -8,35 +8,11 @@ import uuid
 import pytest
 from unittest.mock import MagicMock, patch
 
-from peer import P2PPeer, PeerConnection
+from core.connection import PeerConnection
 from encryption import CryptoContext
 
 
-# ── Fixtures ──────────────────────────────────────────────────────────────
-
-
-@pytest.fixture
-def peer():
-    """P2PPeer with no UI, no listener, and running=True."""
-    p = P2PPeer(
-        host='127.0.0.1',
-        port=0,
-        username='TestUser',
-        enable_encryption=True,
-        use_ui=False,
-        auto_clear=False,
-    )
-    p.running = True
-    return p
-
-
-@pytest.fixture
-def mock_sock():
-    """Standard mock socket for testing."""
-    sock = MagicMock()
-    sock.fileno.return_value = 12345
-    sock.sendall.return_value = None
-    return sock
+# ── Helpers ──────────────────────────────────────────────────────────────
 
 
 def make_peer_connection(sock, username='RemoteUser', crypto=None):
@@ -47,11 +23,11 @@ def make_peer_connection(sock, username='RemoteUser', crypto=None):
     return conn
 
 
-def register_peer(peer_obj, sock, username='RemoteUser', crypto=None):
-    """Register a mock socket + PeerConnection in the peer's peers dict."""
+def register_peer(router_obj, sock, username='RemoteUser', crypto=None):
+    """Register a mock socket + PeerConnection in the router's peers dict."""
     conn = make_peer_connection(sock, username=username, crypto=crypto)
-    with peer_obj.peers_lock:
-        peer_obj.peers[sock] = conn
+    with router_obj.peers_lock:
+        router_obj.peers[sock] = conn
     return conn
 
 
@@ -59,11 +35,11 @@ def register_peer(peer_obj, sock, username='RemoteUser', crypto=None):
 
 
 class TestMessageDedup:
-    """Tests for _process_message deduplication via seen_ids."""
+    """Tests for Router.process_message deduplication via SeenIdCache."""
 
-    def test_dedup_duplicate_id_dropped(self, peer, mock_sock):
+    def test_dedup_duplicate_id_dropped(self, router, mock_socket):
         """A second message with the same msg_id is dropped."""
-        register_peer(peer, mock_sock)
+        register_peer(router, mock_socket)
 
         msg = json.dumps({
             "type": "chat",
@@ -72,15 +48,14 @@ class TestMessageDedup:
             "id": "dup-uuid-123",
         })
 
-        with patch.object(peer, '_display_chat') as mock_display:
-            peer._process_message(msg, mock_sock)
-            peer._process_message(msg, mock_sock)
-            assert mock_display.call_count == 1, \
-                "Dedup failed: _display_chat called more than once"
+        router.process_message(msg, mock_socket)
+        router.process_message(msg, mock_socket)
+        assert router.display.display_chat.call_count == 1, \
+            "Dedup failed: display_chat called more than once"
 
-    def test_no_id_no_dedup(self, peer, mock_sock):
+    def test_no_id_no_dedup(self, router, mock_socket):
         """Messages without an id field are both processed."""
-        register_peer(peer, mock_sock)
+        register_peer(router, mock_socket)
 
         msg_a = json.dumps({
             "type": "chat",
@@ -93,15 +68,14 @@ class TestMessageDedup:
             "message": "Second",
         })
 
-        with patch.object(peer, '_display_chat') as mock_display:
-            peer._process_message(msg_a, mock_sock)
-            peer._process_message(msg_b, mock_sock)
-            assert mock_display.call_count == 2, \
-                "Both messages should be displayed when no id is present"
+        router.process_message(msg_a, mock_socket)
+        router.process_message(msg_b, mock_socket)
+        assert router.display.display_chat.call_count == 2, \
+            "Both messages should be displayed when no id is present"
 
-    def test_different_ids_both_accepted(self, peer, mock_sock):
+    def test_different_ids_both_accepted(self, router, mock_socket):
         """Messages with different IDs are both processed."""
-        register_peer(peer, mock_sock)
+        register_peer(router, mock_socket)
 
         msg_a = json.dumps({
             "type": "chat",
@@ -116,11 +90,10 @@ class TestMessageDedup:
             "id": str(uuid.uuid4()),
         })
 
-        with patch.object(peer, '_display_chat') as mock_display:
-            peer._process_message(msg_a, mock_sock)
-            peer._process_message(msg_b, mock_sock)
-            assert mock_display.call_count == 2, \
-                "Both messages with different IDs should be displayed"
+        router.process_message(msg_a, mock_socket)
+        router.process_message(msg_b, mock_socket)
+        assert router.display.display_chat.call_count == 2, \
+            "Both messages with different IDs should be displayed"
 
 
 # ── Nick Change Tests ─────────────────────────────────────────────────────
@@ -129,9 +102,9 @@ class TestMessageDedup:
 class TestNickChange:
     """Tests for nick_change message processing."""
 
-    def test_nick_change_updates_username(self, peer, mock_sock):
+    def test_nick_change_updates_username(self, router, mock_socket):
         """A nick_change message updates the peer's username."""
-        conn = register_peer(peer, mock_sock, username='OldName')
+        conn = register_peer(router, mock_socket, username='OldName')
 
         msg = json.dumps({
             "type": "nick_change",
@@ -140,15 +113,14 @@ class TestNickChange:
             "new": "NewName",
         })
 
-        with patch.object(peer, '_display_system'):
-            peer._process_message(msg, mock_sock)
+        router.process_message(msg, mock_socket)
 
         assert conn.username == "NewName", \
             f"Expected 'NewName', got '{conn.username}'"
 
-    def test_nick_change_displays_change(self, peer, mock_sock):
+    def test_nick_change_displays_change(self, router, mock_socket):
         """A nick_change message triggers a system message."""
-        register_peer(peer, mock_sock, username='OldName')
+        register_peer(router, mock_socket, username='OldName')
 
         msg = json.dumps({
             "type": "nick_change",
@@ -157,13 +129,11 @@ class TestNickChange:
             "new": "NewName",
         })
 
-        with patch.object(peer, '_display_system') as mock_sys:
-            peer._process_message(msg, mock_sock)
-            mock_sys.assert_called_once()
-            # Verify the message mentions both names
-            call_arg = mock_sys.call_args[0][0]
-            assert "OldName" in call_arg
-            assert "NewName" in call_arg
+        router.process_message(msg, mock_socket)
+        router.display.display_system.assert_called_once()
+        call_arg = router.display.display_system.call_args[0][0]
+        assert "OldName" in call_arg
+        assert "NewName" in call_arg
 
 
 # ── Chat Forwarding Tests ─────────────────────────────────────────────────
@@ -172,7 +142,7 @@ class TestNickChange:
 class TestChatForwarding:
     """Tests for chat message forwarding to other peers."""
 
-    def test_chat_forwarded_to_other_peers(self, peer):
+    def test_chat_forwarded_to_other_peers(self, router):
         """A chat message is forwarded to other connected peers."""
         sock_a = MagicMock()
         sock_a.fileno.return_value = 1
@@ -186,8 +156,8 @@ class TestChatForwarding:
         crypto_a.derive_shared(pub_b)
         crypto_b.derive_shared(pub_a)
 
-        register_peer(peer, sock_a, username='Alice', crypto=crypto_a)
-        register_peer(peer, sock_b, username='Bob', crypto=crypto_b)
+        register_peer(router, sock_a, username='Alice', crypto=crypto_a)
+        register_peer(router, sock_b, username='Bob', crypto=crypto_b)
 
         msg = json.dumps({
             "type": "chat",
@@ -196,14 +166,14 @@ class TestChatForwarding:
             "id": str(uuid.uuid4()),
         })
 
-        with patch.object(peer, '_forward_plaintext') as mock_forward:
-            peer._process_message(msg, sock_a)
+        with patch.object(router, '_forward_plaintext') as mock_forward:
+            router.process_message(msg, sock_a)
             assert mock_forward.called, \
                 "_forward_plaintext should be called for chat-type messages"
 
-    def test_chat_from_single_peer(self, peer, mock_sock):
+    def test_chat_from_single_peer(self, router, mock_socket):
         """A chat message from a peer with no other peers still displays."""
-        register_peer(peer, mock_sock)
+        register_peer(router, mock_socket)
 
         msg = json.dumps({
             "type": "chat",
@@ -212,13 +182,9 @@ class TestChatForwarding:
             "id": str(uuid.uuid4()),
         })
 
-        with patch.object(peer, '_display_chat') as mock_display:
-            with patch.object(peer, '_forward_plaintext') as mock_forward:
-                peer._process_message(msg, mock_sock)
-                assert mock_display.called, \
-                    "_display_chat should be called"
-                # Forwarding may still be called (with no other peers to send to)
-                # The important thing is no crash
+        router.process_message(msg, mock_socket)
+        assert router.display.display_chat.called, \
+            "display_chat should be called"
 
 
 # ── Direct Message Tests ──────────────────────────────────────────────────
@@ -227,9 +193,9 @@ class TestChatForwarding:
 class TestDirectMessage:
     """Tests for direct message processing."""
 
-    def test_direct_message_displays(self, peer, mock_sock):
-        """A direct message is displayed via _display_direct."""
-        register_peer(peer, mock_sock)
+    def test_direct_message_displays(self, router, mock_socket):
+        """A direct message is displayed via display_direct."""
+        register_peer(router, mock_socket)
 
         msg = json.dumps({
             "type": "direct",
@@ -238,14 +204,13 @@ class TestDirectMessage:
             "id": str(uuid.uuid4()),
         })
 
-        with patch.object(peer, '_display_direct') as mock_direct:
-            peer._process_message(msg, mock_sock)
-            assert mock_direct.called, \
-                "_display_direct should be called for direct-type messages"
+        router.process_message(msg, mock_socket)
+        assert router.display.display_direct.called, \
+            "display_direct should be called for direct-type messages"
 
-    def test_direct_not_forwarded(self, peer, mock_sock):
+    def test_direct_not_forwarded(self, router, mock_socket):
         """A direct message should not trigger forwarding."""
-        register_peer(peer, mock_sock)
+        register_peer(router, mock_socket)
 
         msg = json.dumps({
             "type": "direct",
@@ -254,8 +219,8 @@ class TestDirectMessage:
             "id": str(uuid.uuid4()),
         })
 
-        with patch.object(peer, '_forward_plaintext') as mock_forward:
-            peer._process_message(msg, mock_sock)
+        with patch.object(router, '_forward_plaintext') as mock_forward:
+            router.process_message(msg, mock_socket)
             assert not mock_forward.called, \
                 "Direct messages should not be forwarded"
 
@@ -266,18 +231,17 @@ class TestDirectMessage:
 class TestInvalidInput:
     """Tests for handling of malformed or invalid messages."""
 
-    def test_invalid_json_no_crash(self, peer, mock_sock):
+    def test_invalid_json_no_crash(self, router, mock_socket):
         """Sending garbage JSON should not crash (returns silently)."""
-        register_peer(peer, mock_sock)
+        register_peer(router, mock_socket)
 
-        # Should not raise any exception
-        peer._process_message("not valid json at all", mock_sock)
-        peer._process_message("{broken json", mock_sock)
-        peer._process_message("", mock_sock)
+        router.process_message("not valid json at all", mock_socket)
+        router.process_message("{broken json", mock_socket)
+        router.process_message("", mock_socket)
 
-    def test_empty_message_no_crash(self, peer, mock_sock):
+    def test_empty_message_no_crash(self, router, mock_socket):
         """Empty message after JSON parse should not crash."""
-        register_peer(peer, mock_sock)
+        register_peer(router, mock_socket)
 
         msg = json.dumps({
             "type": "chat",
@@ -286,12 +250,9 @@ class TestInvalidInput:
             "id": str(uuid.uuid4()),
         })
 
-        # Should not raise — _display_chat and _forward_plaintext handle empties
-        with patch.object(peer, '_display_chat'):
-            with patch.object(peer, '_forward_plaintext'):
-                peer._process_message(msg, mock_sock)
+        router.process_message(msg, mock_socket)
 
-    def test_unknown_peer_socket_ignored(self, peer, mock_sock):
+    def test_unknown_peer_socket_ignored(self, router, mock_socket):
         """Message from an unregistered socket is ignored."""
         msg = json.dumps({
             "type": "chat",
@@ -299,50 +260,43 @@ class TestInvalidInput:
             "id": str(uuid.uuid4()),
         })
 
-        # mock_sock is NOT registered in peer.peers — should return silently
-        with patch.object(peer, '_display_chat') as mock_display:
-            peer._process_message(msg, mock_sock)
-            assert not mock_display.called, \
-                "Unknown peer socket should be ignored"
+        router.process_message(msg, mock_socket)
+        assert not router.display.display_chat.called, \
+            "Unknown peer socket should be ignored"
 
 
 # ── Rate Limiter Integration Test ─────────────────────────────────────────
 
 
 class TestRateLimiter:
-    """Tests for rate limiting integration in _process_message."""
+    """Tests for rate limiting integration in Router.process_message."""
 
-    def test_rate_limiter_blocks_excess(self, peer, mock_sock):
+    def test_rate_limiter_blocks_excess(self, router, mock_socket):
         """RateLimiter prevents processing when limit is exceeded."""
-        register_peer(peer, mock_sock)
+        register_peer(router, mock_socket)
 
-        # Override rate_limiter with a small limit for testing
-        from sanitizer import RateLimiter
-        peer.rate_limiter = RateLimiter(max_events=2, window=60)
+        from sanitizer import RateLimiter as RL
+        router.rate_limiter = RL(max_events=2, window=60)
 
-        with patch.object(peer, '_display_chat') as mock_display:
-            # First two messages should go through
-            for i in range(2):
-                msg = json.dumps({
-                    "type": "chat",
-                    "username": "RemoteUser",
-                    "message": f"Message {i}",
-                    "id": str(uuid.uuid4()),
-                })
-                peer._process_message(msg, mock_sock)
-
-            # Third message should be rate-limited
+        for i in range(2):
             msg = json.dumps({
                 "type": "chat",
                 "username": "RemoteUser",
-                "message": "Blocked by rate limiter",
+                "message": f"Message {i}",
                 "id": str(uuid.uuid4()),
             })
-            peer._process_message(msg, mock_sock)
+            router.process_message(msg, mock_socket)
 
-            # Only 2 of 3 messages should have reached _display_chat
-            assert mock_display.call_count == 2, \
-                f"Expected 2 _display_chat calls, got {mock_display.call_count}"
+        msg = json.dumps({
+            "type": "chat",
+            "username": "RemoteUser",
+            "message": "Blocked by rate limiter",
+            "id": str(uuid.uuid4()),
+        })
+        router.process_message(msg, mock_socket)
+
+        assert router.display.display_chat.call_count == 2, \
+            f"Expected 2 display_chat calls, got {router.display.display_chat.call_count}"
 
 
 # ── Registry Lifecycle Tests ──────────────────────────────────────────────
@@ -351,9 +305,9 @@ class TestRateLimiter:
 class TestPeerRegistration:
     """Tests for peer registration lookup."""
 
-    def test_unrecognized_type_ignored(self, peer, mock_sock):
+    def test_unrecognized_type_ignored(self, router, mock_socket):
         """An unknown message type should be ignored without error."""
-        register_peer(peer, mock_sock)
+        register_peer(router, mock_socket)
 
         msg = json.dumps({
             "type": "unknown_type",
@@ -362,11 +316,7 @@ class TestPeerRegistration:
             "id": str(uuid.uuid4()),
         })
 
-        # Patches for all display methods to ensure none are called
-        with patch.object(peer, '_display_chat') as mock_chat:
-            with patch.object(peer, '_display_direct') as mock_direct:
-                with patch.object(peer, '_display_system') as mock_sys:
-                    peer._process_message(msg, mock_sock)
-                    assert not mock_chat.called
-                    assert not mock_direct.called
-                    assert not mock_sys.called
+        router.process_message(msg, mock_socket)
+        assert not router.display.display_chat.called
+        assert not router.display.display_direct.called
+        assert not router.display.display_system.called

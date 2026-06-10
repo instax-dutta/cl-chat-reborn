@@ -4,7 +4,7 @@ Input sanitization and rate limiting for CL Chat.
 
 import re
 import time
-from collections import defaultdict, deque
+from collections import deque
 
 
 USERNAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_-]{1,19}$')
@@ -44,19 +44,26 @@ def validate_peer_count(count: int) -> bool:
 
 
 class RateLimiter:
-    """Sliding-window rate limiter per key."""
+    """Sliding-window rate limiter per key with TTL eviction.
 
-    def __init__(self, max_events: int = RATE_LIMIT_MAX, window: float = RATE_LIMIT_WINDOW):
+    Keys are expected to be ``host:port`` strings so rate limits
+    persist across socket reconnections for the same peer endpoint.
+    """
+
+    def __init__(self, max_events: int = RATE_LIMIT_MAX, window: float = RATE_LIMIT_WINDOW, ttl: float = 120.0):
         self.max_events = max_events
         self.window = window
-        self._buckets: dict = defaultdict(deque)
+        self.ttl = ttl
+        self._buckets: dict[str, deque] = {}
 
     def allow(self, key: str) -> bool:
         now = time.monotonic()
+        if key not in self._buckets:
+            self._buckets[key] = deque()
         times = self._buckets[key]
         cutoff = now - self.window
         while times and times[0] < cutoff:
-                times.popleft()
+            times.popleft()
         if len(times) >= self.max_events:
             return False
         times.append(now)
@@ -64,3 +71,11 @@ class RateLimiter:
 
     def reset(self, key: str):
         self._buckets.pop(key, None)
+
+    def evict_expired(self):
+        """Remove entries not touched for longer than *ttl* seconds."""
+        now = time.monotonic()
+        cutoff = now - self.ttl
+        expired = [k for k, v in self._buckets.items() if not v or v[-1] < cutoff]
+        for k in expired:
+            del self._buckets[k]
