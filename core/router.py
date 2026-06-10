@@ -19,6 +19,7 @@ class Router:
         display,
         remove_peer_cb: Callable[[socket.socket], None],
         own_username: str,
+        mesh_ttl: int = 3,
     ):
         self.seen_ids = seen_ids
         self.rate_limiter = rate_limiter
@@ -27,6 +28,7 @@ class Router:
         self.display = display
         self._remove_peer = remove_peer_cb
         self.own_username = own_username
+        self.mesh_ttl = mesh_ttl
 
     def process_message(self, raw: str, source_sock: socket.socket):
         with self.peers_lock:
@@ -66,8 +68,11 @@ class Router:
                 if dm_target == self.own_username:
                     self.display.display_direct(sender, body)
                 return
+            ttl = int(data.get("ttl", self.mesh_ttl))
+            ttl -= 1
+            if ttl > 0:
+                self._forward_plaintext(sender, body, source_sock, ttl)
             self.display.display_chat(sender, body)
-            self._forward_plaintext(sender, body, source_sock)
 
         elif msg_type == "nick_change":
             old_name = data.get("old", "")
@@ -75,7 +80,7 @@ class Router:
             self._update_peer_username(source_sock, new_name)
             self.display.display_system(f"{old_name} changed nickname to {new_name}")
 
-    def _forward_plaintext(self, sender: str, plaintext: str, exclude_sock: socket.socket):
+    def _forward_plaintext(self, sender: str, plaintext: str, exclude_sock: socket.socket, ttl: int = 3):
         msg_id = str(uuid.uuid4())
         self.seen_ids.seen(msg_id)
 
@@ -89,6 +94,7 @@ class Router:
                     "username": sender,
                     "message": encrypted,
                     "id": msg_id,
+                    "ttl": ttl,
                 }) + '\n'
                 try:
                     sock.sendall(payload.encode('utf-8'))
@@ -107,6 +113,7 @@ class Router:
                     "username": self.own_username,
                     "message": encrypted,
                     "id": msg_id,
+                    "ttl": self.mesh_ttl,
                 }) + '\n'
                 try:
                     sock.sendall(payload.encode('utf-8'))

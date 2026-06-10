@@ -23,11 +23,13 @@ __version__ = "0.2.0"
 
 class P2PPeer:
     def __init__(self, host: str = '0.0.0.0', port: int = 9000, username: str = None,
-                 enable_encryption: bool = True, use_ui: bool = True, auto_clear: bool = True):
+                 enable_encryption: bool = True, use_ui: bool = True, auto_clear: bool = True,
+                 mesh_ttl: int = 3):
         self.host = host
         self.port = port
         self.username = username
         self.encryption_enabled = enable_encryption
+        self.mesh_ttl = mesh_ttl
         self.running = False
         self.ui = None
         self.use_ui = use_ui
@@ -42,7 +44,7 @@ class P2PPeer:
         self.tofu = TofuStore(enable_encryption, self.display.display_system)
         self.router = Router(
             self.seen_ids, self.rate_limiter, self.peers, self.peers_lock,
-            self.display, self._remove_peer, username,
+            self.display, self._remove_peer, username, self.mesh_ttl,
         )
         self.cmdr = Commander(
             username, self.peers, self.peers_lock,
