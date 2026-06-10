@@ -2,7 +2,7 @@
 
 ![CI](https://github.com/instax-dutta/cl-chat-reborn/actions/workflows/ci.yml/badge.svg)
 
-Peer-to-peer command-line chat with **per-connection ECDH encryption**, mesh message propagation, and TOFU fingerprint verification. No servers, no accounts, no logs.
+A **P2P encrypted** command-line chat service with per-connection ECDH, mesh message propagation, and TOFU fingerprint verification. No servers, no accounts, no logs.
 
 ## Features
 
@@ -16,7 +16,9 @@ Peer-to-peer command-line chat with **per-connection ECDH encryption**, mesh mes
 - **Input sanitization** — rate limiting (deque sliding window), username validation, control-char stripping
 - **Colored terminal UI** — timestamps, system messages, direct-message tagging (optional, falls back gracefully)
 - **Trace clearance** — memory cleanup and ANSI terminal clearing on disconnect
-- **Test suite** — 57 pytest tests across all modules
+- **Test suite** — 69 pytest tests across all modules
+
+See **[THREAT_MODEL.md](THREAT_MODEL.md)** for security guarantees and limitations.
 
 ## How it works
 
@@ -125,24 +127,53 @@ Each peer-to-peer link gets its own independent key. An attacker compromising on
 ## Project structure
 
 ```
-├── peer.py              # P2P chat application (710 lines)
+├── core/                # Refactored P2P modules
+│   ├── peer.py          # P2PPeer lifecycle coordinator
+│   ├── connection.py    # PeerConnection, handshake logic
+│   ├── router.py        # Message routing, forwarding, dedup
+│   ├── commands.py      # /cmd parsing, nick changes
+│   ├── display.py       # Chat/direct/system output
+│   ├── tofu.py          # TOFU fingerprint store
+│   ├── seen_ids.py      # SeenIdCache (deque+set dedup)
+│   └── fingerprint_challenge.py  # Async fingerprint prompt
+├── peer.py              # CLI entry point (facade)
 ├── encryption.py        # X25519 + ChaCha20-Poly1305 + HKDF + fingerprint
 ├── sanitizer.py         # Input validation, deque rate limiter, peer limits
 ├── terminal_ui.py       # Colored terminal interface (colorama-backed)
 ├── trace_clearance.py   # Memory & terminal cleanup (ANSI escapes)
 ├── demo.py              # Dependency check and usage instructions
-├── tests/               # pytest test suite (57 tests)
+├── tests/               # pytest test suite (69 tests)
 │   ├── test_sanitizer.py
 │   ├── test_encryption.py
 │   ├── test_peer.py
-│   └── conftest.py
+│   ├── conftest.py
+│   └── unit/            # Unit tests per module
+│       ├── test_seen_ids.py
+│       ├── test_router.py
+│       ├── test_commands.py
+│       ├── test_connection.py
+│       ├── test_display.py
+│       └── test_tofu.py
+├── pyproject.toml       # Project metadata, ruff, mypy config
+├── THREAT_MODEL.md      # Security threat model
+├── CHANGELOG.md         # Release history
+├── CONTRIBUTING.md      # Development guide
 └── requirements.txt     # Dependencies
 ```
 
+## Security flags
+
+| Flag               | Effect                                                       | When to use          |
+|--------------------|--------------------------------------------------------------|----------------------|
+| (default)          | X25519 ECDH + ChaCha20-Poly1305 per connection               | Always               |
+| `--no-encryption`  | Plaintext TCP. All messages visible on the wire.             | Debug / LAN only     |
+| `--direct-only`    | Disables mesh relay. Only direct connections receive msgs.   | High-confidentiality |
+| `--discover`       | Enables mDNS LAN peer discovery.                             | Trusted LAN only     |
+
 ## Requirements
 
-- **Python 3.6+**
-- **cryptography >= 3.4.8** — X25519, ChaCha20-Poly1305, HKDF
+- **Python 3.9+**
+- **cryptography >= 41.0** — X25519, ChaCha20-Poly1305, HKDF
 - **colorama >= 0.4.6** — optional, for colored terminal output
 
 Install: `pip install cryptography colorama`
